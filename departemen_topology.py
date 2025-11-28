@@ -38,76 +38,76 @@ class DeptTopo(Topo):
         h1 = self.addHost('ap9l1', ip='192.168.10.1/27')  # AP Mahasiswa Lantai 1
         h2 = self.addHost('rk9l1', ip='192.168.10.2/27')  # Host Ruang Kuliah Lantai 1
 
-        # Gedung G9 - Lantai 2 - Switch 1 (subnet dari 192.168.10.32/26) - Dosen
-        h3 = self.addHost('d9s1', ip='192.168.10.33/26')
-        h4 = self.addHost('d9s1b', ip='192.168.10.34/26')
+        # Gedung G9 - Lantai 2 - Switch 1 (subnet dari 192.168.10.32/27) - Dosen
+        h3 = self.addHost('d9s1', ip='192.168.10.33/27')
+        h4 = self.addHost('d9s1b', ip='192.168.10.34/27')
 
-        # Gedung G9 - Lantai 2 - Switch 2 (subnet dari 192.168.10.42/26) - Administrasi & Keuangan
-        h5 = self.addHost('ad9s2', ip='192.168.10.43/26')
-        h6 = self.addHost('ad9s2b', ip='192.168.10.44/26')
+        # Gedung G9 - Lantai 2 - Switch 2 (subnet dari 192.168.10.64/27) - Administrasi & Keuangan
+        h5 = self.addHost('ad9s2', ip='192.168.10.65/27')
+        h6 = self.addHost('ad9s2b', ip='192.168.10.66/27')
 
-        # Gedung G9 - Lantai 2 - Switch 3 (subnet dari 192.168.10.52/26) - Pimpinan & Kesekretariatan
-        h7 = self.addHost('p9s3', ip='192.168.10.53/26')
-        h8 = self.addHost('p9s3b', ip='192.168.10.54/26')
+        # Gedung G9 - Lantai 2 - Switch 3 (subnet dari 192.168.10.96/27) - Pimpinan & Kesekretariatan
+        h7 = self.addHost('p9s3', ip='192.168.10.97/27')
+        h8 = self.addHost('p9s3b', ip='192.168.10.98/27')
 
-        # Gedung G9 - Lantai 2 - Switch 4 (subnet dari 192.168.10.62/26) - Ujian & Mahasiswa
-        h9 = self.addHost('uj9s4', ip='192.168.10.63/26')
-        h10 = self.addHost('uj9s4b', ip='192.168.10.64/26')
+        # Gedung G9 - Lantai 2 - Switch 4 (subnet dari 192.168.10.128/27) - Ujian & Mahasiswa
+        h9 = self.addHost('uj9s4', ip='192.168.10.129/27')
+        h10 = self.addHost('uj9s4b', ip='192.168.10.130/27')
 
-        # Gedung G9 - Lantai 3 - Switch 1 (subnet dari 192.168.10.96/25) - Lab 1
-        h11 = self.addHost('lab1', ip='192.168.10.97/25')
-        h12 = self.addHost('lab1b', ip='192.168.10.98/25')
+        # Gedung G9 - Lantai 3 - Switch 1 (subnet dari 192.168.10.160/27) - Lab 1
+        h11 = self.addHost('lab1', ip='192.168.10.161/27')
+        h12 = self.addHost('lab1b', ip='192.168.10.162/27')
 
-        # Gedung G9 - Lantai 3 - Switch 2 (subnet dari 192.168.10.129/25) - Lab 2
-        h13 = self.addHost('lab2', ip='192.168.10.130/25')
-        h14 = self.addHost('lab2b', ip='192.168.10.131/25')
+        # Gedung G9 - Lantai 3 - Switch 2 (subnet dari 192.168.10.192/27) - Lab 2
+        h13 = self.addHost('lab2', ip='192.168.10.193/27')
+        h14 = self.addHost('lab2b', ip='192.168.10.194/27')
 
-        # Gedung G9 - Lantai 3 - Switch 3 (subnet dari 192.168.10.159/25) - Lab 3
-        h15 = self.addHost('lab3', ip='192.168.10.160/25')
-        h16 = self.addHost('lab3b', ip='192.168.10.161/25')
+        # Gedung G9 - Lantai 3 - Switch 3 (subnet dari 192.168.10.224/27) - Lab 3
+        h15 = self.addHost('lab3', ip='192.168.10.225/27')
+        h16 = self.addHost('lab3b', ip='192.168.10.226/27')
 
-        # Gedung G9 - Lantai 3 - Access Point dan Host (subnet dari 192.168.10.159/25) - Mahasiswa
-        h17 = self.addHost('ap9l3', ip='192.168.10.162/25')  # Access Point
-        h18 = self.addHost('m9l3a', ip='192.168.10.163/25')  # Host 1
-        h19 = self.addHost('m9l3b', ip='192.168.10.164/25')  # Host 2
+        # Gedung G9 - Lantai 3 - Access Point dan Host (subnet dari 192.168.10.240/28) - Mahasiswa
+        h17 = self.addHost('ap9l3', ip='192.168.10.241/28')  # Access Point
+        h18 = self.addHost('m9l3a', ip='192.168.10.242/28')  # Host 1
+        h19 = self.addHost('m9l3b', ip='192.168.10.243/28')  # Host 2
 
         # Gedung G10 - Lantai 1 (IP Kabel: 172.16.21.0/28) - Ruang Kuliah + AP Mahasiswa
         h21 = self.addHost('ap10l1', ip='172.16.21.1/28')  # AP Mahasiswa Lantai 1
         h22 = self.addHost('rk10l1', ip='172.16.21.2/28')  # Host Ruang Kuliah Lantai 1
 
-        # Gedung G10 - Lantai 2 (IP Kabel: 172.16.21.16/29) - Dosen
-        h23 = self.addHost('d10l2', ip='172.16.21.17/29')
-        h24 = self.addHost('d10l2b', ip='172.16.21.18/29')
+        # Gedung G10 - Lantai 2 (IP Kabel: 172.16.21.16/28) - Dosen
+        h23 = self.addHost('d10l2', ip='172.16.21.17/28')
+        h24 = self.addHost('d10l2b', ip='172.16.21.18/28')
 
-        # Gedung G10 - Lantai 3 (IP Kabel: 172.16.21.32/26) - Dosen
-        h25 = self.addHost('d10l3', ip='172.16.21.33/26')
-        h26 = self.addHost('d10l3b', ip='172.16.21.34/26')
+        # Gedung G10 - Lantai 3 (IP Kabel: 172.16.21.32/27) - Dosen
+        h25 = self.addHost('d10l3', ip='172.16.21.33/27')
+        h26 = self.addHost('d10l3b', ip='172.16.21.34/27')
 
         # Access Point Tambahan Gedung G10
         # AP Mahasiswa Gedung G10 Lantai 2
-        h27 = self.addHost('ap10l2', ip='172.16.21.19/29')  # AP Mahasiswa L2
-        h28 = self.addHost('m10l2a', ip='172.16.21.20/29')  # Host tambahan AP L2
+        h27 = self.addHost('ap10l2', ip='172.16.21.19/28')  # AP Mahasiswa L2
+        h28 = self.addHost('m10l2a', ip='172.16.21.20/28')  # Host tambahan AP L2
 
         # AP Aula Gedung G10 Lantai 2
-        h29 = self.addHost('apaula', ip='172.16.21.21/29')  # AP Aula Khusus L2
-        h30 = self.addHost('aulab', ip='172.16.21.22/29')  # Host tambahan AP Aula
+        h29 = self.addHost('apaula', ip='172.16.21.21/28')  # AP Aula Khusus L2
+        h30 = self.addHost('aulab', ip='172.16.21.22/28')  # Host tambahan AP Aula
 
         # AP Mahasiswa Gedung G10 Lantai 3
-        h31 = self.addHost('ap10l3', ip='172.16.21.35/26')  # AP Mahasiswa L3
-        h32 = self.addHost('m10l3a', ip='172.16.21.36/26')  # Host tambahan AP L3
+        h31 = self.addHost('ap10l3', ip='172.16.21.35/27')  # AP Mahasiswa L3
+        h32 = self.addHost('m10l3a', ip='172.16.21.36/27')  # Host tambahan AP L3
 
         # Hubungkan core switch ke switch gedung
         self.addLink(core_switch, g9_switch)
         self.addLink(core_switch, g10_switch)
 
-        # Hubungkan switch gedung ke switch lantai
-        self.addLink(g9_switch, g9_l1_switch)
-        self.addLink(g9_switch, g9_l2_main)
-        self.addLink(g9_switch, g9_l3_main)
+        # Hubungkan switch gedung ke switch lantai (G9 menggunakan g9_l1_switch sebagai switch utama)
+        self.addLink(g9_switch, g9_l1_switch)  # Switch utama untuk gedung G9
+        self.addLink(g9_l1_switch, g9_l2_main)  # Lantai 2 terhubung melalui switch Lantai 1
+        self.addLink(g9_l1_switch, g9_l3_main)  # Lantai 3 terhubung melalui switch Lantai 1
 
-        self.addLink(g10_switch, g10_l1_switch)
-        self.addLink(g10_switch, g10_l2_switch)
-        self.addLink(g10_switch, g10_l3_switch)
+        self.addLink(g10_switch, g10_l1_switch)  # Switch utama untuk gedung G10
+        self.addLink(g10_l1_switch, g10_l2_switch)  # Lantai 2 terhubung melalui switch Lantai 1
+        self.addLink(g10_l1_switch, g10_l3_switch)  # Lantai 3 terhubung melalui switch Lantai 1
 
         # Hubungkan switch tambahan di Lantai 2 Gedung G9
         self.addLink(g9_l2_main, g9_l2_s1)

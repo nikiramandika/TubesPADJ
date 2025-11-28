@@ -70,46 +70,49 @@ class DeptFirewall(app_manager.RyuApp):
             dst_ip = ip_pkt.dst
 
             # Gedung G9 - Lantai 1: Ruang Kuliah + AP Mahasiswa (192.168.10.0/27) - h1, h2
-            # Gedung G9 - Lantai 2 - Switch 1: Dosen (192.168.10.32/26) - h3, h4
-            # Gedung G9 - Lantai 2 - Switch 2: Administrasi & Keuangan (192.168.10.42/26) - h5, h6 - HIGH-SENSITIVITY
-            # Gedung G9 - Lantai 2 - Switch 3: Pimpinan & Sekretariat (192.168.10.52/26) - h7, h8 - VERY HIGH-SENSITIVITY
-            # Gedung G9 - Lantai 2 - Switch 4: Ujian & Mahasiswa (192.168.10.62/26) - h9, h10 - CONTROLLED & ISOLATED
-            # Gedung G9 - Lantai 3 - Lab 1-3 (192.168.10.96/25) - h11, h12, h13, h14, h15, h16
-            # Gedung G9 - Lantai 3 - AP + Mahasiswa (192.168.10.159/25) - h17, h18, h19
+            # Gedung G9 - Lantai 2 - Switch 1: Dosen (192.168.10.32/27) - h3, h4
+            # Gedung G9 - Lantai 2 - Switch 2: Administrasi & Keuangan (192.168.10.64/27) - h5, h6 - HIGH-SENSITIVITY
+            # Gedung G9 - Lantai 2 - Switch 3: Pimpinan & Sekretariat (192.168.10.96/27) - h7, h8 - VERY HIGH-SENSITIVITY
+            # Gedung G9 - Lantai 2 - Switch 4: Ujian & Mahasiswa (192.168.10.128/27) - h9, h10 - CONTROLLED & ISOLATED
+            # Gedung G9 - Lantai 3 - Lab 1 (192.168.10.160/27) - h11, h12
+            # Gedung G9 - Lantai 3 - Lab 2 (192.168.10.192/27) - h13, h14
+            # Gedung G9 - Lantai 3 - Lab 3 (192.168.10.224/27) - h15, h16
+            # Gedung G9 - Lantai 3 - AP + Mahasiswa (192.168.10.240/28) - h17, h18, h19
             # Gedung G10 Lantai 1: Ruang Kuliah + AP Mahasiswa (172.16.21.0/28) - h21, h22
-            # Gedung G10 Lantai 2: Dosen (172.16.21.16/29) - h23, h24
-            # Gedung G10 Lantai 3: Dosen (172.16.21.32/26) - h25, h26
-            # AP Tambahan Gedung G10: L2 (172.16.21.19/29) h27,h28, Aula (172.16.21.21/29) h29,h30, L3 (172.16.21.35/26) h31,h32
+            # Gedung G10 Lantai 2: Dosen (172.16.21.16/28) - h23, h24
+            # Gedung G10 Lantai 3: Dosen (172.16.21.32/27) - h25, h26
+            # AP Tambahan Gedung G10: L2 (172.16.21.19/28) h27,h28, Aula (172.16.21.21/28) h29,h30, L3 (172.16.21.35/27) h31,h32
 
-            # Rules untuk VERY HIGH-SENSITIVITY (Pimpinan & Sekretariat - 192.168.10.64/27)
+            # Rules untuk VERY HIGH-SENSITIVITY (Pimpinan & Sekretariat - 192.168.10.96/27)
             # Blokir semua akses ke zona ini dari zona lain kecuali dari Administrasi & Keuangan
-            if dst_ip.startswith("192.168.10.64"):
-                if not (src_ip.startswith("192.168.10.32") or src_ip.startswith("192.168.10.64")):
-                    self.logger.info(f"BLOCKED: Akses tidak diizinkan ke Zona Pimpinan & Sekretariat dari {src_ip}")
-                    return
+            if (dst_ip.startswith("192.168.10.96") and
+                not (src_ip.startswith("192.168.10.64") or src_ip.startswith("192.168.10.96"))):
+                self.logger.info(f"BLOCKED: Akses tidak diizinkan ke Zona Pimpinan & Sekretariat dari {src_ip}")
+                return
 
-            # Rules untuk HIGH-SENSITIVITY (Administrasi & Keuangan - 192.168.10.32/27)
+            # Rules untuk HIGH-SENSITIVITY (Administrasi & Keuangan - 192.168.10.64/27)
             # Hanya izinkan akses dari zona yang sama dan dari Pimpinan
-            if dst_ip.startswith("192.168.10.32"):
-                if not (src_ip.startswith("192.168.10.32") or src_ip.startswith("192.168.10.64")):
-                    self.logger.info(f"BLOCKED: Akses tidak diizinkan ke Zona Administrasi & Keuangan dari {src_ip}")
-                    return
+            if (dst_ip.startswith("192.168.10.64") and
+                not (src_ip.startswith("192.168.10.64") or src_ip.startswith("192.168.10.96"))):
+                self.logger.info(f"BLOCKED: Akses tidak diizinkan ke Zona Administrasi & Keuangan dari {src_ip}")
+                return
 
             # Rules untuk CONTROLLED & ISOLATED (Ujian - 192.168.10.128/27)
             # Blokir akses dari mahasiswa selama ujian, hanya izinkan dari dosen
-            if dst_ip.startswith("192.168.10.128"):
-                if src_ip.startswith("192.168.10.0") or src_ip.startswith("192.168.10.160"):  # Mahasiswa
-                    self.logger.info(f"BLOCKED: Mahasiswa tidak diizinkan mengakses Zona Ujian dari {src_ip}")
-                    return
+            if (dst_ip.startswith("192.168.10.128") and
+                (src_ip.startswith("192.168.10.0") or src_ip.startswith("192.168.10.240"))):  # Mahasiswa
+                self.logger.info(f"BLOCKED: Mahasiswa tidak diizinkan mengakses Zona Ujian dari {src_ip}")
+                return
 
             # Rules untuk ZONA RUANG KULIAH & MAHASISWA
             # Gedung G9 Lantai 1: Ruang Kuliah + AP (192.168.10.0/27)
             # Gedung G10 Lantai 1: Ruang Kuliah + AP (172.16.21.0/28)
             # Batasi akses ke zona sensitif
             if (src_ip.startswith("192.168.10.0") or      # Ruang Kuliah G9 L1
-                src_ip.startswith("172.16.21.0") or      # Ruang Kuliah G10 L1 (hanya .0/.1/.2)
-                src_ip.startswith("192.168.10.159")):      # Lab & Mahasiswa G9 L3
-                if dst_ip.startswith("192.168.10.42") or dst_ip.startswith("192.168.10.52"):  # Blok ke Admin & Pimpinan
+                src_ip.startswith("172.16.21.0") or      # Ruang Kuliah G10 L1
+                src_ip.startswith("192.168.10.240")):     # AP & Mahasiswa G9 L3
+                if (dst_ip.startswith("192.168.10.64") or   # Admin & Keuangan
+                    dst_ip.startswith("192.168.10.96")):    # Pimpinan & Sekretariat
                     self.logger.info(f"BLOCKED: Ruang Kuliah/Mahasiswa tidak diizinkan mengakses zona sensitif dari {src_ip} ke {dst_ip}")
                     return
 
@@ -135,8 +138,8 @@ class DeptFirewall(app_manager.RyuApp):
             # Rules untuk GEDUNG G10 (172.16.21.0/24)
             # Subnet breakdown:
             # - 172.16.21.0/28: Lantai 1 (Ruang Kuliah + AP Mahasiswa)
-            # - 172.16.21.16/29: Lantai 2 (Dosen + AP Mahasiswa + AP Aula)
-            # - 172.16.21.32/26: Lantai 3 (Dosen + AP Mahasiswa)
+            # - 172.16.21.16/28: Lantai 2 (Dosen + AP Mahasiswa + AP Aula)
+            # - 172.16.21.32/27: Lantai 3 (Dosen + AP Mahasiswa)
 
             # Izinkan akses untuk mahasiswa melalui AP di Gedung G10
             # AP Mahasiswa memiliki IP: 172.16.21.1 (L1), 172.16.21.19 (L2), 172.16.21.35 (L3)
@@ -153,7 +156,8 @@ class DeptFirewall(app_manager.RyuApp):
                 # - Internal Gedung G10
                 # - Lab dan zona mahasiswa di Gedung G9
                 # - Tidak bisa akses zona sensitif (Admin, Pimpinan)
-                if dst_ip.startswith("192.168.10.32") or dst_ip.startswith("192.168.10.64"):
+                if (dst_ip.startswith("192.168.10.64") or   # Admin & Keuangan
+                    dst_ip.startswith("192.168.10.96")):    # Pimpinan
                     self.logger.info(f"BLOCKED: Mahasiswa AP G10 tidak diizinkan akses zona sensitif dari {src_ip} ke {dst_ip}")
                     return
                 else:
@@ -163,7 +167,7 @@ class DeptFirewall(app_manager.RyuApp):
             if is_aula_g10_ap:
                 # AP Aula bisa mengakses lebih banyak zona untuk presentasi dan kegiatan
                 # Tapi tetap dibatasi untuk zona very high-sensitivity
-                if dst_ip.startswith("192.168.10.64"):  # Zona Pimpinan
+                if dst_ip.startswith("192.168.10.96"):  # Zona Pimpinan
                     self.logger.info(f"BLOCKED: AP Aula tidak diizinkan akses zona Pimpinan dari {src_ip} ke {dst_ip}")
                     return
                 else:
@@ -172,15 +176,15 @@ class DeptFirewall(app_manager.RyuApp):
             # Rules untuk staf Gedung G10 (non-AP)
             if dst_ip.startswith("172.16.21."):
                 if not (src_ip.startswith("172.16.21.") or
-                         src_ip.startswith("192.168.10.96") or  # Dosen G9
-                         src_ip.startswith("192.168.10.64") or  # Pimpinan G9
+                         src_ip.startswith("192.168.10.32") or  # Dosen G9
+                         src_ip.startswith("192.168.10.96") or  # Pimpinan G9
                          is_mahasiswa_g10_ap or is_aula_g10_ap):  # AP Mahasiswa & Aula G10
                     self.logger.info(f"BLOCKED: Akses ke Gedung G10 tidak diizinkan dari luar gedung dari {src_ip}")
                     return
 
-            # Rules untuk SEMI-TRUSTED (Dosen - 192.168.10.96/27 dan 172.16.21.16/29)
+            # Rules untuk SEMI-TRUSTED (Dosen - 192.168.10.32/27 dan 172.16.21.16/28)
             # Dosen dapat mengakses zona ujian dan mahasiswa dengan batasan
-            if src_ip.startswith("192.168.10.96") and dst_ip.startswith("192.168.10.128"):
+            if src_ip.startswith("192.168.10.32") and dst_ip.startswith("192.168.10.128"):
                 self.logger.info(f"ALLOWED: Dosen mengakses Zona Ujian dari {src_ip} ke {dst_ip}")
 
             # Log semua traffic yang diperbolehkan untuk monitoring

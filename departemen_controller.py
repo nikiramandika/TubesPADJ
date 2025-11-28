@@ -8,31 +8,34 @@ from ryu.lib.packet import packet, ethernet, ether_types, ipv4, arp
 
 class MedicalACLController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-
     def __init__(self, *args, **kwargs):
         super(MedicalACLController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
 
-        # DEFINISI ZONA IP (Sesuai data Anda)
-        # Kita buat Network Object untuk memudahkan pengecekan
+        # DEFINISI ZONA IP (DENGAN STRICT=FALSE AGAR TIDAK ERROR)
         self.zones = {
-            'MHS_G9_WIFI_L1': ipaddress.ip_network('192.168.1.0/22'),
-            'MHS_G9_KABEL_L1': ipaddress.ip_network('192.168.10.0/27'),
-            'MHS_G9_WIFI_L3': ipaddress.ip_network('192.168.6.0/22'),
-            'LAB_G9_L3':      ipaddress.ip_network('192.168.10.96/25'),
-            'AULA_WIFI':      ipaddress.ip_network('172.16.20.64/25'),
+            # 192.168.1.0/22 sebenarnya start di 0.0, jadi butuh strict=False
+            'MHS_G9_WIFI_L1': ipaddress.ip_network('192.168.1.0/22', strict=False),
             
-            # Area Sensitif (G9 Lt 2 - Kabel)
-            # Karena IP mereka tergabung dalam 192.168.10.32/26, 
-            # kita definisikan berdasarkan Host Spesifik yang kita assign di Mininet
+            'MHS_G9_KABEL_L1': ipaddress.ip_network('192.168.10.0/27', strict=False),
+            
+            # 192.168.6.0/22 sebenarnya start di 4.0, jadi butuh strict=False
+            'MHS_G9_WIFI_L3': ipaddress.ip_network('192.168.6.0/22', strict=False),
+            
+            'LAB_G9_L3':      ipaddress.ip_network('192.168.10.96/25', strict=False),
+            'AULA_WIFI':      ipaddress.ip_network('172.16.20.64/25', strict=False),
+            
+            # Area Sensitif (List Host Spesifik - Tidak perlu strict=False karena ini ip_address)
             'G9_KEUANGAN':    [ipaddress.ip_address('192.168.10.33'), ipaddress.ip_address('192.168.10.34')],
             'G9_DEKAN':       [ipaddress.ip_address('192.168.10.50')],
             'G9_UJIAN':       [ipaddress.ip_address('192.168.10.90')],
             'G9_DOSEN':       [ipaddress.ip_address('192.168.10.70')],
             
-            'G10_ADMIN':      ipaddress.ip_network('172.16.21.0/28'),
-            'G10_DOSEN_L2':   ipaddress.ip_network('172.16.21.16/29'),
-            'G10_DOSEN_L3':   ipaddress.ip_network('172.16.21.32/26')
+            'G10_ADMIN':      ipaddress.ip_network('172.16.21.0/28', strict=False),
+            'G10_DOSEN_L2':   ipaddress.ip_network('172.16.21.16/29', strict=False),
+            
+            # 172.16.21.32 bukan awal blok /26 (awal bloknya 0), jadi butuh strict=False
+            'G10_DOSEN_L3':   ipaddress.ip_network('172.16.21.32/26', strict=False)
         }
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)

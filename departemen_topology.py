@@ -46,13 +46,13 @@ class DeptTopo(Topo):
         h5 = self.addHost('ad9s2', ip='192.168.10.43/26')
         h6 = self.addHost('ad9s2b', ip='192.168.10.44/26')
 
-        # Gedung G9 - Lantai 2 - Switch 3 (subnet dari 192.168.10.52/26) - Pimpinan & Kesekretariatan
-        h7 = self.addHost('p9s3', ip='192.168.10.53/26')
-        h8 = self.addHost('p9s3b', ip='192.168.10.54/26')
+        # Gedung G9 - Lantai 2 - Switch 3 (subnet dari 192.168.10.49/26) - Pimpinan & Kesekretariatan
+        h7 = self.addHost('p9s3', ip='192.168.10.50/26')
+        h8 = self.addHost('p9s3b', ip='192.168.10.51/26')
 
-        # Gedung G9 - Lantai 2 - Switch 4 (subnet dari 192.168.10.62/26) - Ujian & Mahasiswa
-        h9 = self.addHost('uj9s4', ip='192.168.10.63/26')
-        h10 = self.addHost('uj9s4b', ip='192.168.10.64/26')
+        # Gedung G9 - Lantai 2 - Switch 4 (subnet dari 192.168.10.51/26) - Ujian & Mahasiswa
+        h9 = self.addHost('uj9s4', ip='192.168.10.52/26')
+        h10 = self.addHost('uj9s4b', ip='192.168.10.53/26')
 
         # Gedung G9 - Lantai 3 - Switch 1 (subnet dari 192.168.10.96/25) - Lab 1
         h11 = self.addHost('lab1', ip='192.168.10.97/25')
@@ -192,8 +192,8 @@ topos = { 'dept_topo': ( lambda: DeptTopo() ) }
 def run():
     topo = DeptTopo()
     
-    net = Mininet(topo=topo, 
-                  controller=RemoteController(name='c0', ip='127.0.0.1'), 
+    net = Mininet(topo=topo,
+                  controller=RemoteController(name='c0', ip='127.0.0.1'),
                   switch=OVSKernelSwitch)
     
     print("\n*** Memulai Jaringan (Departemen Topology)...")

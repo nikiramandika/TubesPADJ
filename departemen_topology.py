@@ -1,32 +1,17 @@
 from mininet.topo import Topo
 from mininet.net import Mininet
-from mininet.node import RemoteController, OVSKernelSwitch, Host
+from mininet.node import RemoteController, OVSKernelSwitch
 from mininet.cli import CLI
 from mininet.log import setLogLevel
-import os
 
-class Router(Host):
-    """Custom Router class for routing between subnets"""
-    def config(self, **params):
-        super(Router, self).config(**params)
-        # Enable IP forwarding
-        self.cmd('sysctl -w net.ipv4.ip_forward=1')
-        # Disable reverse path filtering
-        self.cmd('sysctl -w net.ipv4.conf.all.rp_filter=0')
-        self.cmd('sysctl -w net.ipv4.conf.default.rp_filter=0')
-
-class DeptTopoFixed(Topo):
+class DeptTopo(Topo):
     def build(self):
-        # Core Switch
+        # Core Switch (tidak melakukan routing antar-gedung untuk opsi B)
         core_switch = self.addSwitch('s0')
 
         # Building Switches
         g9_switch = self.addSwitch('g9')
         g10_switch = self.addSwitch('g10')
-
-        # Building Routers untuk inter-subnet routing
-        router_g9 = self.addNode('router_g9', cls=Router, ip='192.168.10.254/24')
-        router_g10 = self.addNode('router_g10', cls=Router, ip='172.16.21.254/24')
 
         # Gedung G9 - Floor 1
         g9_l1_switch = self.addSwitch('g9l1')
@@ -48,97 +33,92 @@ class DeptTopoFixed(Topo):
         g10_l2_switch = self.addSwitch('g10l2')
         g10_l3_switch = self.addSwitch('g10l3')
 
-        # ========== GEDUNG G9 - FLOOR 1 (192.168.10.0/27) ==========
-        # Ruang Kuliah + AP Mahasiswa
-        ap9l1 = self.addHost('ap9l1', ip='192.168.10.1/27', defaultRoute='via 192.168.10.254')
-        rk9l1 = self.addHost('rk9l1', ip='192.168.10.2/27', defaultRoute='via 192.168.10.254')
+        # ========== GEDUNG G9 - HOSTS ==========
+        ap9l1 = self.addHost('ap9l1', ip='192.168.10.1/27')
+        rk9l1 = self.addHost('rk9l1', ip='192.168.10.2/27')
 
-        # ========== GEDUNG G9 - FLOOR 2 ==========
-        # Switch 1: Dosen (192.168.10.32/27)
-        d9s1_1 = self.addHost('d9s1_1', ip='192.168.10.33/27', defaultRoute='via 192.168.10.254')
-        d9s1_2 = self.addHost('d9s1_2', ip='192.168.10.34/27', defaultRoute='via 192.168.10.254')
+        d9s1_1 = self.addHost('d9s1_1', ip='192.168.10.33/27')
+        d9s1_2 = self.addHost('d9s1_2', ip='192.168.10.34/27')
 
-        # Switch 2: Administrasi & Keuangan (192.168.10.64/27)
-        ad9s2_1 = self.addHost('ad9s2_1', ip='192.168.10.65/27', defaultRoute='via 192.168.10.254')
-        ad9s2_2 = self.addHost('ad9s2_2', ip='192.168.10.66/27', defaultRoute='via 192.168.10.254')
+        ad9s2_1 = self.addHost('ad9s2_1', ip='192.168.10.65/27')
+        ad9s2_2 = self.addHost('ad9s2_2', ip='192.168.10.66/27')
 
-        # Switch 3: Pimpinan & Sekretariat (192.168.10.96/27)
-        p9s3_1 = self.addHost('p9s3_1', ip='192.168.10.97/27', defaultRoute='via 192.168.10.254')
-        p9s3_2 = self.addHost('p9s3_2', ip='192.168.10.98/27', defaultRoute='via 192.168.10.254')
+        p9s3_1 = self.addHost('p9s3_1', ip='192.168.10.97/27')
+        p9s3_2 = self.addHost('p9s3_2', ip='192.168.10.98/27')
 
-        # Switch 4: Ujian & Mahasiswa (192.168.10.128/27)
-        uj9s4_1 = self.addHost('uj9s4_1', ip='192.168.10.129/27', defaultRoute='via 192.168.10.254')
-        uj9s4_2 = self.addHost('uj9s4_2', ip='192.168.10.130/27', defaultRoute='via 192.168.10.254')
+        uj9s4_1 = self.addHost('uj9s4_1', ip='192.168.10.129/27')
+        uj9s4_2 = self.addHost('uj9s4_2', ip='192.168.10.130/27')
 
-        # ========== GEDUNG G9 - FLOOR 3 ==========
-        # Switch 1: Lab 1 (192.168.10.160/27)
-        lab1_1 = self.addHost('lab1_1', ip='192.168.10.161/27', defaultRoute='via 192.168.10.254')
-        lab1_2 = self.addHost('lab1_2', ip='192.168.10.162/27', defaultRoute='via 192.168.10.254')
+        lab1_1 = self.addHost('lab1_1', ip='192.168.10.161/27')
+        lab1_2 = self.addHost('lab1_2', ip='192.168.10.162/27')
 
-        # Switch 2: Lab 2 (192.168.10.192/27)
-        lab2_1 = self.addHost('lab2_1', ip='192.168.10.193/27', defaultRoute='via 192.168.10.254')
-        lab2_2 = self.addHost('lab2_2', ip='192.168.10.194/27', defaultRoute='via 192.168.10.254')
+        lab2_1 = self.addHost('lab2_1', ip='192.168.10.193/27')
+        lab2_2 = self.addHost('lab2_2', ip='192.168.10.194/27')
 
-        # Switch 3: Lab 3 (192.168.10.224/27)
-        lab3_1 = self.addHost('lab3_1', ip='192.168.10.225/27', defaultRoute='via 192.168.10.254')
-        lab3_2 = self.addHost('lab3_2', ip='192.168.10.226/27', defaultRoute='via 192.168.10.254')
+        lab3_1 = self.addHost('lab3_1', ip='192.168.10.225/27')
+        lab3_2 = self.addHost('lab3_2', ip='192.168.10.226/27')
 
-        # AP Switch: AP & Mahasiswa (192.168.10.240/28)
-        ap9l3_1 = self.addHost('ap9l3_1', ip='192.168.10.241/28', defaultRoute='via 192.168.10.254')
-        ap9l3_2 = self.addHost('ap9l3_2', ip='192.168.10.242/28', defaultRoute='via 192.168.10.254')
-        ap9l3_3 = self.addHost('ap9l3_3', ip='192.168.10.243/28', defaultRoute='via 192.168.10.254')
+        ap9l3_1 = self.addHost('ap9l3_1', ip='192.168.10.241/28')
+        ap9l3_2 = self.addHost('ap9l3_2', ip='192.168.10.242/28')
+        ap9l3_3 = self.addHost('ap9l3_3', ip='192.168.10.243/28')
 
-        # ========== GEDUNG G10 - FLOOR 1 (172.16.21.0/28) ==========
-        # Ruang Kuliah + AP Mahasiswa
-        ap10l1 = self.addHost('ap10l1', ip='172.16.21.1/28', defaultRoute='via 172.16.21.254')
-        rk10l1 = self.addHost('rk10l1', ip='172.16.21.2/28', defaultRoute='via 172.16.21.254')
+        # ========== GEDUNG G10 - HOSTS ==========
+        ap10l1 = self.addHost('ap10l1', ip='172.16.21.1/28')
+        rk10l1 = self.addHost('rk10l1', ip='172.16.21.2/28')
 
-        # ========== GEDUNG G10 - FLOOR 2 (172.16.21.16/28) ==========
-        # Dosen + AP Mahasiswa + AP Aula
-        d10l2_1 = self.addHost('d10l2_1', ip='172.16.21.17/28', defaultRoute='via 172.16.21.254')
-        d10l2_2 = self.addHost('d10l2_2', ip='172.16.21.18/28', defaultRoute='via 172.16.21.254')
-        ap10l2 = self.addHost('ap10l2', ip='172.16.21.19/28', defaultRoute='via 172.16.21.254')
-        apaula = self.addHost('apaula', ip='172.16.21.21/28', defaultRoute='via 172.16.21.254')
+        d10l2_1 = self.addHost('d10l2_1', ip='172.16.21.17/28')
+        d10l2_2 = self.addHost('d10l2_2', ip='172.16.21.18/28')
+        ap10l2 = self.addHost('ap10l2', ip='172.16.21.19/28')
+        apaula = self.addHost('apaula', ip='172.16.21.21/28')
 
-        # ========== GEDUNG G10 - FLOOR 3 (172.16.21.32/27) ==========
-        # Dosen + AP Mahasiswa
-        d10l3_1 = self.addHost('d10l3_1', ip='172.16.21.33/27', defaultRoute='via 172.16.21.254')
-        d10l3_2 = self.addHost('d10l3_2', ip='172.16.21.34/27', defaultRoute='via 172.16.21.254')
-        ap10l3 = self.addHost('ap10l3', ip='172.16.21.35/27', defaultRoute='via 172.16.21.254')
+        d10l3_1 = self.addHost('d10l3_1', ip='172.16.21.33/27')
+        d10l3_2 = self.addHost('d10l3_2', ip='172.16.21.34/27')
+        ap10l3 = self.addHost('ap10l3', ip='172.16.21.35/27')
 
-        # ========== LINK CORE TO BUILDINGS ==========
+        # ========== ROUTERS (per-building) ==========
+        # Kita buat router sebagai host Linux (enable IP forwarding later)
+        r_g9 = self.addHost('r_g9')   # router for G9
+        r_g10 = self.addHost('r_g10') # router for G10
+
+        # ========== LINKS CORE TO BUILDINGS ==========
         self.addLink(core_switch, g9_switch)
         self.addLink(core_switch, g10_switch)
-
-        # ========== ROUTER CONNECTIONS ==========
-        # Hubungkan router ke core switches
-        self.addLink(router_g9, g9_switch)
-        self.addLink(router_g10, g10_switch)
-
-        # Inter-building router connection
-        self.addLink(router_g9, router_g10)
 
         # ========== GEDUNG G9 LINKS ==========
         # Building to Floor 1
         self.addLink(g9_switch, g9_l1_switch)
 
-        # Floor 1 to Floor 2 switches (star topology)
+        # Floor 1 to Floor 2 and Floor 3 (star via g9_l1_switch)
         self.addLink(g9_l1_switch, g9_l2_s1)
         self.addLink(g9_l1_switch, g9_l2_s2)
         self.addLink(g9_l1_switch, g9_l2_s3)
         self.addLink(g9_l1_switch, g9_l2_s4)
 
-        # Floor 1 to Floor 3 switches (star topology)
         self.addLink(g9_l1_switch, g9_l3_s1)
         self.addLink(g9_l1_switch, g9_l3_s2)
         self.addLink(g9_l1_switch, g9_l3_s3)
         self.addLink(g9_l1_switch, g9_l3_ap)
 
+        # Connect G9 router to each floor-switch so router has interface in every subnet
+        self.addLink(r_g9, g9_l1_switch)   # eth0 -> g9 floor1 subnet gateway
+        self.addLink(r_g9, g9_l2_s1)       # eth1 -> g9 floor2 s1 gateway
+        self.addLink(r_g9, g9_l2_s2)       # eth2
+        self.addLink(r_g9, g9_l2_s3)       # eth3
+        self.addLink(r_g9, g9_l2_s4)       # eth4
+        self.addLink(r_g9, g9_l3_s1)       # eth5
+        self.addLink(r_g9, g9_l3_s2)       # eth6
+        self.addLink(r_g9, g9_l3_s3)       # eth7
+        self.addLink(r_g9, g9_l3_ap)       # eth8
+
         # ========== GEDUNG G10 LINKS ==========
-        # Building to Floors
         self.addLink(g10_switch, g10_l1_switch)
         self.addLink(g10_l1_switch, g10_l2_switch)
         self.addLink(g10_l1_switch, g10_l3_switch)
+
+        # Connect G10 router to each floor switch in G10
+        self.addLink(r_g10, g10_l1_switch)  # eth0 -> g10 floor1
+        self.addLink(r_g10, g10_l2_switch)  # eth1 -> g10 floor2
+        self.addLink(r_g10, g10_l3_switch)  # eth2 -> g10 floor3
 
         # ========== HOST CONNECTIONS G9 ==========
         # Floor 1
@@ -161,15 +141,15 @@ class DeptTopoFixed(Topo):
         self.addLink(uj9s4_1, g9_l2_s4)
         self.addLink(uj9s4_2, g9_l2_s4)
 
-        # Floor 3 - Switch 1 (Lab 1)
+        # Floor 3 - Lab 1
         self.addLink(lab1_1, g9_l3_s1)
         self.addLink(lab1_2, g9_l3_s1)
 
-        # Floor 3 - Switch 2 (Lab 2)
+        # Floor 3 - Lab 2
         self.addLink(lab2_1, g9_l3_s2)
         self.addLink(lab2_2, g9_l3_s2)
 
-        # Floor 3 - Switch 3 (Lab 3)
+        # Floor 3 - Lab 3
         self.addLink(lab3_1, g9_l3_s3)
         self.addLink(lab3_2, g9_l3_s3)
 
@@ -179,118 +159,186 @@ class DeptTopoFixed(Topo):
         self.addLink(ap9l3_3, g9_l3_ap)
 
         # ========== HOST CONNECTIONS G10 ==========
-        # Floor 1
         self.addLink(ap10l1, g10_l1_switch)
         self.addLink(rk10l1, g10_l1_switch)
 
-        # Floor 2
         self.addLink(d10l2_1, g10_l2_switch)
         self.addLink(d10l2_2, g10_l2_switch)
         self.addLink(ap10l2, g10_l2_switch)
         self.addLink(apaula, g10_l2_switch)
 
-        # Floor 3
         self.addLink(d10l3_1, g10_l3_switch)
         self.addLink(d10l3_2, g10_l3_switch)
         self.addLink(ap10l3, g10_l3_switch)
 
-topos = { 'dept_topo_fixed': ( lambda: DeptTopoFixed() ) }
+
+# Topo dict
+topos = { 'dept_topo': ( lambda: DeptTopo() ) }
 
 def configure_routing(net):
-    """Configure routing between routers and buildings"""
-    print("Mengkonfigurasi routing antar gedung...")
+    """Configure per-building routing: router per building that routes among floors.
+       No inter-building routing (G9 <-> G10) for option B.
+    """
+    print("Configuring per-building routing (G9 and G10 routers)...")
 
-    # Configure router interfaces
-    router_g9 = net['router_g9']
-    router_g10 = net['router_g10']
+    # Subnet/gateway mapping
+    gateways = {
+        # G9
+        'g9_f1': '192.168.10.1',
+        'g9_f2s1': '192.168.10.33',
+        'g9_f2s2': '192.168.10.65',
+        'g9_f2s3': '192.168.10.97',
+        'g9_f2s4': '192.168.10.129',
+        'g9_f3s1': '192.168.10.161',
+        'g9_f3s2': '192.168.10.193',
+        'g9_f3s3': '192.168.10.225',
+        'g9_f3ap': '192.168.10.241',
 
-    # Get router interface names
-    router_g9_intfs = router_g9.intfNames()
-    router_g10_intfs = router_g10.intfNames()
+        # G10
+        'g10_f1': '172.16.21.1',
+        'g10_f2': '172.16.21.17',
+        'g10_f3': '172.16.21.33',
+    }
 
-    # Configure additional router interfaces for inter-building routing
-    # Router G9 ke G10
-    router_g9.cmd('ip addr add 10.0.0.1/24 dev router_g9-eth1')
-    router_g10.cmd('ip addr add 10.0.0.2/24 dev router_g10-eth1')
+    # Assign IPs to router interfaces. We assume the order of links added in build() -> eth0, eth1, ...
+    # For r_g9 we added links in this order: g9_l1_switch, g9_l2_s1, g9_l2_s2, g9_l2_s3, g9_l2_s4, g9_l3_s1, g9_l3_s2, g9_l3_s3, g9_l3_ap
+    if 'r_g9' in net:
+        r_g9 = net['r_g9']
+        r_g9.cmd('sysctl -w net.ipv4.ip_forward=1')
+        print("  ✓ IP forwarding enabled on r_g9")
 
-    # Add routing tables
-    # Router G9: route ke G10 network via router_g10
-    router_g9.cmd('ip route add 172.16.21.0/16 via 10.0.0.2 dev router_g9-eth1')
+        r_g9.cmd('ifconfig r_g9-eth0 192.168.10.1/27')   # floor1 gateway
+        r_g9.cmd('ifconfig r_g9-eth1 192.168.10.33/27')  # f2 s1
+        r_g9.cmd('ifconfig r_g9-eth2 192.168.10.65/27')  # f2 s2
+        r_g9.cmd('ifconfig r_g9-eth3 192.168.10.97/27')  # f2 s3
+        r_g9.cmd('ifconfig r_g9-eth4 192.168.10.129/27') # f2 s4
+        r_g9.cmd('ifconfig r_g9-eth5 192.168.10.161/27') # f3 s1
+        r_g9.cmd('ifconfig r_g9-eth6 192.168.10.193/27') # f3 s2
+        r_g9.cmd('ifconfig r_g9-eth7 192.168.10.225/27') # f3 s3
+        r_g9.cmd('ifconfig r_g9-eth8 192.168.10.241/28') # f3 ap
 
-    # Router G10: route ke G9 network via router_g9
-    router_g10.cmd('ip route add 192.168.10.0/24 via 10.0.0.1 dev router_g10-eth1')
+        print("  ✓ r_g9 interfaces configured")
 
-    print("  ✓ Router G9: 192.168.10.0/24 -> local, 172.16.21.0/16 via 10.0.0.2")
-    print("  ✓ Router G10: 172.16.21.0/16 -> local, 192.168.10.0/24 via 10.0.0.1")
+    # For r_g10 we added links in this order: g10_l1_switch, g10_l2_switch, g10_l3_switch
+    if 'r_g10' in net:
+        r_g10 = net['r_g10']
+        r_g10.cmd('sysctl -w net.ipv4.ip_forward=1')
+        print("  ✓ IP forwarding enabled on r_g10")
 
-    print("  ✓ Routing configuration completed")
+        r_g10.cmd('ifconfig r_g10-eth0 172.16.21.1/28')  # floor1
+        r_g10.cmd('ifconfig r_g10-eth1 172.16.21.17/28') # floor2
+        r_g10.cmd('ifconfig r_g10-eth2 172.16.21.33/27') # floor3
+
+        print("  ✓ r_g10 interfaces configured")
+
+    # Set default gateway on each host to the router IP of its building/subnet.
+    host_to_gw = {
+        # G9 floor1
+        'ap9l1': '192.168.10.1',
+        'rk9l1': '192.168.10.1',
+
+        # G9 floor2 s1
+        'd9s1_1': '192.168.10.33',
+        'd9s1_2': '192.168.10.33',
+
+        # G9 floor2 s2
+        'ad9s2_1': '192.168.10.65',
+        'ad9s2_2': '192.168.10.65',
+
+        # G9 floor2 s3
+        'p9s3_1': '192.168.10.97',
+        'p9s3_2': '192.168.10.97',
+
+        # G9 floor2 s4
+        'uj9s4_1': '192.168.10.129',
+        'uj9s4_2': '192.168.10.129',
+
+        # G9 floor3 labs & ap
+        'lab1_1': '192.168.10.161',
+        'lab1_2': '192.168.10.161',
+        'lab2_1': '192.168.10.193',
+        'lab2_2': '192.168.10.193',
+        'lab3_1': '192.168.10.225',
+        'lab3_2': '192.168.10.225',
+        'ap9l3_1': '192.168.10.241',
+        'ap9l3_2': '192.168.10.241',
+        'ap9l3_3': '192.168.10.241',
+
+        # G10
+        'ap10l1': '172.16.21.1',
+        'rk10l1': '172.16.21.1',
+
+        'd10l2_1': '172.16.21.17',
+        'd10l2_2': '172.16.21.17',
+        'ap10l2': '172.16.21.17',
+        'apaula': '172.16.21.17',
+
+        'd10l3_1': '172.16.21.33',
+        'd10l3_2': '172.16.21.33',
+        'ap10l3': '172.16.21.33',
+    }
+
+    for host_name, gw in host_to_gw.items():
+        if host_name in net:
+            h = net[host_name]
+            # flush any existing default route to avoid duplicates
+            h.cmd('ip route del default || true')
+            h.cmd(f'ip route add default via {gw}')
+            print(f"  ✓ {host_name}: default via {gw}")
+
+    print("  ✓ Per-building routing configured (no inter-building routes).")
 
 def test_connectivity(net):
-    """Test basic connectivity between key hosts"""
-    print("\n=== BASIC CONNECTIVITY TESTING ===")
+    """Simple connectivity tests (ping same-building across floors)."""
+    print("\n=== TEST CONNECTIVITY (per-building) ===")
 
-    test_cases = [
-        ("Same Subnet G9", "d9s1_1", "d9s1_2"),
-        ("Same Subnet G10", "d10l2_1", "d10l2_2"),
-        ("Cross Subnet G9", "d9s1_1", "rk9l1"),
-        ("Cross Building G9->G10", "d9s1_1", "d10l2_1"),
-        ("Ping Gateway G9", "d9s1_1", "192.168.10.254"),
-        ("Ping Gateway G10", "d10l2_1", "172.16.21.254")
+    tests = [
+        # G9 internal: hop across floors using router
+        ('ap9l1', 'd9s1_1'),
+        ('d9s1_1', 'lab1_1'),
+        ('lab2_1', 'ap9l3_1'),
+        # G10 internal
+        ('ap10l1', 'd10l2_1'),
+        ('d10l3_1', 'rk10l1'),
+        # cross-building (should fail or be unreachable by design)
+        ('ap9l1', 'ap10l1'),
     ]
 
-    for test_name, host_name, target in test_cases:
-        if host_name in net:
-            host = net[host_name]
-
-            if target.replace('.', '').isdigit():  # IP address
-                print(f"\n{test_name}: {host_name} -> {target}")
-                result = host.cmd(f'ping -c 2 -W 2 {target}')
-            else:  # hostname
-                if target in net:
-                    target_host = net[target]
-                    target_ip = target_host.IP()
-                    print(f"\n{test_name}: {host_name} -> {target} ({target_ip})")
-                    result = host.cmd(f'ping -c 2 -W 2 {target_ip}')
-                else:
-                    print(f"\n{test_name}: {host_name} -> {target} (target not found)")
-                    continue
-
-            if "0% packet loss" in result or "2 packets received" in result or "1 packets received" in result:
-                print(f"  ✓ SUCCESS")
+    for h1_name, h2_name in tests:
+        if h1_name in net and h2_name in net:
+            h1 = net[h1_name]
+            h2 = net[h2_name]
+            print(f"\nTesting: {h1_name} -> {h2_name} ({h2.IP()})")
+            result = h1.cmd('ping -c 3 -W 2 %s' % h2.IP())
+            if '0% packet loss' in result or '1 packets received' in result:
+                print(f"  ✓ SUCCESS: {h1_name} can reach {h2_name}")
             else:
-                print(f"  ✗ FAILED")
-                # Show routing info for debugging
-                routes = host.cmd('ip route')
-                print(f"    Routes: {len(routes.split())} routes configured")
-        else:
-            print(f"\n{test_name}: {host_name} not found")
+                print(f"  ✗ FAILED / BLOCKED: {h1_name} cannot reach {h2_name}")
+                # print brief ping output
+                print(result.splitlines()[:4])
+
+    print("\n=== CONNECTIVITY TESTING DONE ===")
 
 def run():
-    topo = DeptTopoFixed()
-
+    topo = DeptTopo()
     net = Mininet(topo=topo,
                   controller=RemoteController(name='c0', ip='127.0.0.1'),
                   switch=OVSKernelSwitch,
                   autoSetMacs=True)
 
-    print("\n*** Memulai Jaringan (Departemen Topology Fixed with Router)...")
+    print("\n*** Starting network (Dept topology)...")
     net.start()
 
-    print("*** Konfigurasi routing...")
+    print("*** Configuring routing (per-building routers)...")
     configure_routing(net)
 
-    print("*** Testing koneksi dasar...")
+    print("*** Running connectivity tests...")
     test_connectivity(net)
 
-    print("\n*** Masuk ke CLI. Ketik 'exit' untuk keluar.")
-    print("\nCommands to try:")
-    print("  d9s1_1 ping rk9l1")
-    print("  d9s1_1 ping d10l2_1")
-    print("  d10l2_1 ping rk9l1")
-    print("  ip route show")
+    print("\n*** Entering CLI (type 'exit' to stop)...")
     CLI(net)
 
-    print("*** Mematikan Jaringan...")
+    print("*** Stopping network...")
     net.stop()
 
 if __name__ == '__main__':

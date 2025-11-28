@@ -70,9 +70,15 @@ class MedicalACLController(app_manager.RyuApp):
             return ip in target
 
     def check_security(self, src_ip, dst_ip):
-        # LOGIKA KEAMANAN / FIREWALL
-        
-        # 1. BLOKIR MAHASISWA/PUBLIC KE KEUANGAN/DEKAN/ADMIN
+        # LOGIKA KEAMANAN / FIREWALL (REVISED ORDER)
+        # PRINSIP: Cek Izin Khusus (Whitelist) DULU, baru Cek Larangan (Blacklist)
+
+        # 1. IZIN KHUSUS: KEUANGAN KE DEKAN (WHITELIST)
+        # Aturan ini harus paling atas agar tidak kena blokir aturan Mahasiswa
+        if self.is_in_zone(src_ip, 'G9_KEUANGAN') and self.is_in_zone(dst_ip, 'G9_DEKAN'):
+             return True, "ALLOW: Keuangan to Dekan (Special Access)"
+
+        # 2. BLOKIR MAHASISWA/PUBLIC KE KEUANGAN/DEKAN/ADMIN (BLACKLIST)
         mhs_zones = ['MHS_G9_WIFI_L1', 'MHS_G9_KABEL_L1', 'MHS_G9_WIFI_L3', 'AULA_WIFI', 'LAB_G9_L3']
         secure_zones = ['G9_KEUANGAN', 'G9_DEKAN', 'G10_ADMIN']
         
@@ -82,19 +88,13 @@ class MedicalACLController(app_manager.RyuApp):
         if is_src_mhs and is_dst_secure:
             return False, "BLOCK: Mahasiswa to Secure Zone"
 
-        # 2. BLOKIR ANTAR DEPARTEMEN SENSITIF (Keuangan tdk bisa ke Dekan, Dosen tdk bisa ke Ujian)
-        # Contoh: Dosen G9 (192.168.10.70) ke Ujian (192.168.10.90)
+        # 3. BLOKIR ANTAR DEPARTEMEN SENSITIF LAINNYA
+        # Contoh: Dosen G9 tidak boleh akses Server Ujian
         if self.is_in_zone(src_ip, 'G9_DOSEN') and self.is_in_zone(dst_ip, 'G9_UJIAN'):
             return False, "BLOCK: Dosen to Ujian"
-            
-        if self.is_in_zone(src_ip, 'G9_KEUANGAN') and self.is_in_zone(dst_ip, 'G9_DEKAN'):
-             # Misal: Keuangan boleh ke Dekan? Kalau tidak, return False.
-             # Kita anggap sesama pimpinan boleh, tapi kalau mau strict:
-             return True, "ALLOW: Keuangan to Dekan"
 
-        # 3. Default: ALLOW jika tidak ada rule blokir
+        # 4. Default: ALLOW jika tidak ada rule blokir
         return True, "ALLOW: Default"
-
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         msg = ev.msg

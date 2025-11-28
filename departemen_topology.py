@@ -109,6 +109,14 @@ class DeptTopo(Topo):
         self.addLink(g10_switch, g10_l2_switch)
         self.addLink(g10_switch, g10_l3_switch)
 
+        # Hubungkan switch lantai dalam Gedung G9 untuk konektivitas antar lantai
+        self.addLink(g9_l1_switch, g9_l2_main)
+        self.addLink(g9_l2_main, g9_l3_main)
+
+        # Hubungkan switch lantai dalam Gedung G10 untuk konektivitas antar lantai
+        self.addLink(g10_l1_switch, g10_l2_switch)
+        self.addLink(g10_l2_switch, g10_l3_switch)
+
         # Hubungkan switch tambahan di Lantai 2 Gedung G9
         self.addLink(g9_l2_main, g9_l2_s1)
         self.addLink(g9_l2_main, g9_l2_s2)

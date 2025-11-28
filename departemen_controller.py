@@ -139,7 +139,9 @@ class MedicalSimpleController(app_manager.RyuApp):
         actions = [parser.OFPActionOutput(out_port)]
 
         if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+            # FIX: Tambahkan eth_type agar flow rule spesifik (IPv6/ARP tidak meloloskan IPv4)
+            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src, eth_type=eth.ethertype)
+            
             if msg.buffer_id != ofproto.OFP_NO_BUFFER:
                 self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                 return

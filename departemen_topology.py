@@ -10,29 +10,29 @@ class DeptTopo(Topo):
         core_switch = self.addSwitch('s0')
 
         # Switch Gedung
-        g9_switch = self.addSwitch('sg9')
-        g10_switch = self.addSwitch('sg10')
+        g9_switch = self.addSwitch('g9')
+        g10_switch = self.addSwitch('g10')
 
         # Gedung G9 - Lantai 1
-        g9_l1_switch = self.addSwitch('sg9-l1')
+        g9_l1_switch = self.addSwitch('g9l1')
 
         # Gedung G9 - Lantai 2 (dengan 4 switch tambahan)
-        g9_l2_main = self.addSwitch('sg9-l2-main')
-        g9_l2_s1 = self.addSwitch('sg9-l2-s1')
-        g9_l2_s2 = self.addSwitch('sg9-l2-s2')
-        g9_l2_s3 = self.addSwitch('sg9-l2-s3')
-        g9_l2_s4 = self.addSwitch('sg9-l2-s4')
+        g9_l2_main = self.addSwitch('g9l2')
+        g9_l2_s1 = self.addSwitch('g9s1')
+        g9_l2_s2 = self.addSwitch('g9s2')
+        g9_l2_s3 = self.addSwitch('g9s3')
+        g9_l2_s4 = self.addSwitch('g9s4')
 
         # Gedung G9 - Lantai 3 (dengan 3 switch tambahan)
-        g9_l3_main = self.addSwitch('sg9-l3-main')
-        g9_l3_s1 = self.addSwitch('sg9-l3-s1')
-        g9_l3_s2 = self.addSwitch('sg9-l3-s2')
-        g9_l3_s3 = self.addSwitch('sg9-l3-s3')
+        g9_l3_main = self.addSwitch('g9l3')
+        g9_l3_s1 = self.addSwitch('g9l1s')
+        g9_l3_s2 = self.addSwitch('g9l2s')
+        g9_l3_s3 = self.addSwitch('g9l3s')
 
         # Gedung G10 - 3 lantai
-        g10_l1_switch = self.addSwitch('sg10-l1')
-        g10_l2_switch = self.addSwitch('sg10-l2')
-        g10_l3_switch = self.addSwitch('sg10-l3')
+        g10_l1_switch = self.addSwitch('g10l1')
+        g10_l2_switch = self.addSwitch('g10l2')
+        g10_l3_switch = self.addSwitch('g10l3')
 
         # Gedung G9 - Lantai 1 (IP : 192.168.10.0/27) - Ruang Kuliah + AP Mahasiswa
         h1 = self.addHost('ap9l1', ip='192.168.10.1/27')  # AP Mahasiswa Lantai 1

@@ -185,11 +185,6 @@ def run():
     print("\n*** Memulai Jaringan (Departemen Topology)...")
     net.start()
     
-    print("*** Menjalankan Ping Test...")
-    # Simple ping test to verify connectivity
-    print("Ping: ap9l1 -> rk9l1")
-    net.pingPair((net['ap9l1'], net['rk9l1']))
-    
     print("\n*** Masuk ke CLI. Ketik 'exit' untuk keluar.")
     CLI(net)
     

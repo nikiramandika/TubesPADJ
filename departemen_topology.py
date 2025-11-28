@@ -4,10 +4,10 @@ class CampusTopo(Topo):
     def build(self):
 
         # ---------------- CORE SWITCH ----------------
-        core = self.addSwitch("core")
+        core = self.addSwitch("s1", dpid="0000000000000001")
 
         # ---------------- G9 Lantai 1 ----------------
-        g9l1 = self.addSwitch("g9l1")
+        g9l1 = self.addSwitch("s2", dpid="0000000000000002")
         self.addLink(core, g9l1)
 
         ap9l1 = self.addHost("ap9l1", ip="192.168.10.1/24")
@@ -16,7 +16,7 @@ class CampusTopo(Topo):
         self.addLink(rk9l1, g9l1)
 
         # ---------------- G9 Lantai 2 ----------------
-        g9l2 = self.addSwitch("g9l2")
+        g9l2 = self.addSwitch("s3", dpid="0000000000000003")
         self.addLink(core, g9l2)
 
         ad9s1 = self.addHost("ad9s1", ip="192.168.10.11/24")
@@ -38,7 +38,7 @@ class CampusTopo(Topo):
         self.addLink(uj9s2, g9l2)
 
         # ---------------- G9 Lantai 3 ----------------
-        g9l3 = self.addSwitch("g9l3")
+        g9l3 = self.addSwitch("s4", dpid="0000000000000004")
         self.addLink(core, g9l3)
 
         m9l3a = self.addHost("m9l3a", ip="192.168.10.51/24")
@@ -52,7 +52,7 @@ class CampusTopo(Topo):
         self.addLink(l9s3b, g9l3)
 
         # ---------------- G10 Lantai 1 ----------------
-        g10l1 = self.addSwitch("g10l1")
+        g10l1 = self.addSwitch("s5", dpid="0000000000000005")
         self.addLink(core, g10l1)
 
         adm10a = self.addHost("adm10a", ip="192.168.10.71/24")
@@ -61,7 +61,7 @@ class CampusTopo(Topo):
         self.addLink(adm10b, g10l1)
 
         # ---------------- G10 Lantai 2 ----------------
-        g10l2 = self.addSwitch("g10l2")
+        g10l2 = self.addSwitch("s6", dpid="0000000000000006")
         self.addLink(core, g10l2)
 
         d10a = self.addHost("d10a", ip="192.168.10.81/24")

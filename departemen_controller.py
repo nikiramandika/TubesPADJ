@@ -79,33 +79,35 @@ class MedicalSimpleController(app_manager.RyuApp):
     def check_security(self, src_ip, dst_ip, icmp_type=None):
         src_cat = self.get_zone_category(src_ip)
         dst_cat = self.get_zone_category(dst_ip)
+        
+        # Format Return: (Allowed, Reason, Install_Flow)
+        # Install_Flow = False artinya "Jangan ingat keputusan ini, cek lagi paket berikutnya"
 
         # RULE 1: Keuangan ke Dekan -> ALLOW (Izin Khusus Internal Secure)
         if src_ip in self.zones['KEUANGAN'] and dst_ip in self.zones['DEKAN']:
-            return True, "ALLOW: Internal Report (Keuangan -> Dekan)"
+             return True, "ALLOW: Internal Report (Keuangan -> Dekan)", True
 
         # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
             # KECUALIAN: Izinkan jika ini adalah Balasan Ping (Echo Reply - Type 0)
-            # Ini memungkinkan Secure untuk inisiatif ping ke Mahasiswa
             if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, "ALLOW: Ping Reply (Return Traffic)"
+                # Install_Flow = False (PENTING: Agar request berikutnya tetap diblokir)
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
                 
-            return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman"
+            return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman", False
 
         # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
-            # Sama seperti Rule 2, izinkan reply agar Dosen bisa ping Mahasiswa
             if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, "ALLOW: Ping Reply (Return Traffic)"
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
 
-            return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen Pribadi"
+            return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen Pribadi", False
 
         # RULE 4: Dosen -> Ujian (BLOCK)
         if src_cat == 'DOSEN' and dst_ip in self.zones['UJIAN']:
-            return False, "BLOCK: Dosen akses Server Ujian"
+            return False, "BLOCK: Dosen akses Server Ujian", False
 
-        return True, "ALLOW: Akses Diizinkan"
+        return True, "ALLOW: Akses Diizinkan", True
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -126,28 +128,31 @@ class MedicalSimpleController(app_manager.RyuApp):
         self.mac_to_port.setdefault(dpid, {})
         self.mac_to_port[dpid][src] = in_port
 
+        # Variabel kontrol flow
+        should_install_flow = True
+
         # --- LOGIKA FIREWALL ---
         if eth.ethertype == ether_types.ETH_TYPE_IP:
             ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
             src_ip = ipv4_pkt.src
             dst_ip = ipv4_pkt.dst
             
-            # Cek apakah paket ini ICMP (Protocol 1)
             icmp_type = None
             if ipv4_pkt.proto == 1: # 1 = ICMP
                 icmp_p = pkt.get_protocol(icmp.icmp)
                 if icmp_p:
                     icmp_type = icmp_p.type
 
-            allowed, reason = self.check_security(src_ip, dst_ip, icmp_type)
+            # Ambil 3 nilai return
+            allowed, reason, should_install_flow = self.check_security(src_ip, dst_ip, icmp_type)
             
             if not allowed:
                 self.logger.warning(f"{reason} | {src_ip} -> {dst_ip}")
-                return # DROP (Paket dibuang, tidak diteruskan)
+                return # DROP
             else:
                 self.logger.info(f"{reason} | {src_ip} -> {dst_ip}")
 
-        # Standard L2 Switching (FLOOD / Forward)
+        # Standard L2 Switching
         out_port = ofproto.OFPP_FLOOD
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
@@ -155,14 +160,24 @@ class MedicalSimpleController(app_manager.RyuApp):
         actions = [parser.OFPActionOutput(out_port)]
 
         if out_port != ofproto.OFPP_FLOOD:
-            # FIX: Tambahkan eth_type agar flow rule spesifik (IPv6/ARP tidak meloloskan IPv4)
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src, eth_type=eth.ethertype)
             
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                return
+            # HANYA pasang flow jika diizinkan (should_install_flow == True)
+            if should_install_flow:
+                if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                    self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                    return
+                else:
+                    self.add_flow(datapath, 1, match, actions)
             else:
-                self.add_flow(datapath, 1, match, actions)
+                # Jika should_install_flow == False (misal Ping Reply),
+                # Kita kirim paketnya SAJA tanpa merekam rule di switch.
+                data = None
+                if msg.buffer_id == ofproto.OFP_NO_BUFFER: data = msg.data
+                out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, 
+                                          in_port=in_port, actions=actions, data=data)
+                datapath.send_msg(out)
+                return
         
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER: data = msg.data

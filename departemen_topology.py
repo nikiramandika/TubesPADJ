@@ -175,10 +175,7 @@ topos = { 'dept_topo': ( lambda: DeptTopo() ) }
 
 def configure_routing(net):
     """Configure comprehensive static routing between different subnets"""
-    print("Mengkonfigurasi routing lengkap untuk seluruh topology...")
-
     # Enable IP forwarding pada semua switch yang bertindak sebagai router
-    print("1. Enable IP forwarding pada switch...")
     router_switches = ['g9', 'g10', 'g9l1', 'g9l2s1', 'g9l2s2', 'g9l2s3', 'g9l2s4',
                        'g9l3s1', 'g9l3s2', 'g9l3s3', 'g9l3ap', 'g10l1', 'g10l2', 'g10l3', 's0']
 
@@ -186,10 +183,6 @@ def configure_routing(net):
         if switch_name in net:
             switch = net[switch_name]
             switch.cmd('sysctl -w net.ipv4.ip_forward=1 > /dev/null 2>&1')
-            print(f"  ✓ IP forwarding enabled on {switch_name}")
-
-    # Konfigurasi routing untuk semua host
-    print("2. Mengkonfigurasi static routing untuk setiap host...")
 
     # Complete subnet mapping
     all_subnets = {
@@ -425,9 +418,6 @@ def configure_routing(net):
                             cmd = f'ip route add {subnet_cidr} dev {interface}'
 
                     result = host.cmd(cmd)
-                    print(f"  ✓ {host_name}: route {subnet_cidr}")
-
-    print("  ✓ Routing configuration completed untuk semua host")
 
 
 def run():

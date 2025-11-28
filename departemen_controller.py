@@ -74,21 +74,31 @@ class DeptFirewall(app_manager.RyuApp):
                 if ip.startswith("192.168.10."):
                     if ip.startswith("192.168.10.0"):  # /27 - 192.168.10.0-31
                         return "RUANG_KULIAH_G9_L1"
-                    elif ip.startswith("192.168.10.32"):  # /26 - 192.168.10.32-63
+                    elif ip.startswith("192.168.10.32"):  # /27 - 192.168.10.32-63
                         return "DOSEN_G9_L2"
-                    elif ip.startswith("192.168.10.64"):  # /26 - 192.168.10.64-127
+                    elif ip.startswith("192.168.10.64"):  # /27 - 192.168.10.64-95
                         return "ADMIN_G9_L2"
-                    elif ip.startswith("192.168.10.96"):  # /26 - 192.168.10.96-127
+                    elif ip.startswith("192.168.10.96"):  # /27 - 192.168.10.96-127
                         return "PEIMPINAN_G9_L2"
-                    elif ip.startswith("192.168.10.128"):  # /25 - 192.168.10.128-255
-                        return "MAHASISWA_G9_L3"
+                    elif ip.startswith("192.168.10.128"):  # /27 - 192.168.10.128-159
+                        return "UJIAN_G9_L2"
+                    elif ip.startswith("192.168.10.160"):  # /27 - 192.168.10.160-191
+                        return "LAB1_G9_L3"
+                    elif ip.startswith("192.168.10.192"):  # /27 - 192.168.10.192-223
+                        return "LAB2_G9_L3"
+                    elif ip.startswith("192.168.10.224"):  # /27 - 192.168.10.224-255
+                        return "LAB3_MAHASISWA_G9_L3"
                 elif ip.startswith("172.16.21."):
                     if ip.startswith("172.16.21.0"):  # /28 - 172.16.21.0-15
                         return "RUANG_KULIAH_G10_L1"
-                    elif ip.startswith("172.16.21.16"):  # /29 - 172.16.21.16-31
+                    elif ip.startswith("172.16.21.16"):  # /29 - 172.16.21.16-23
                         return "DOSEN_G10_L2"
-                    elif ip.startswith("172.16.21.32"):  # /26 - 172.16.21.32-63
+                    elif ip.startswith("172.16.21.24"):  # /29 - 172.16.21.24-31
+                        return "AP_AULA_G10_L2"
+                    elif ip.startswith("172.16.21.32"):  # /27 - 172.16.21.32-63
                         return "DOSEN_G10_L3"
+                    elif ip.startswith("172.16.21.64"):  # /27 - 172.16.21.64-95
+                        return "AP_MAHASISWA_G10_L3"
                 return "UNKNOWN"
 
             src_zone = get_zone(src_ip)
@@ -116,7 +126,7 @@ class DeptFirewall(app_manager.RyuApp):
                     return
 
             # 4. Zona Mahasiswa tidak bisa akses zona sensitif (Admin, Pimpinan)
-            elif src_zone in ["RUANG_KULIAH_G9_L1", "RUANG_KULIAH_G10_L1", "MAHASISWA_G9_L3"]:
+            elif src_zone in ["RUANG_KULIAH_G9_L1", "RUANG_KULIAH_G10_L1", "LAB3_MAHASISWA_G9_L3", "AP_MAHASISWA_G10_L3"]:
                 if dst_zone in ["ADMIN_G9_L2", "PEIMPINAN_G9_L2"]:
                     self.logger.info(f"BLOCKED: Mahasiswa tidak boleh akses zona sensitif")
                     return
@@ -125,7 +135,7 @@ class DeptFirewall(app_manager.RyuApp):
             elif ((src_ip.startswith("192.168.10.") and dst_ip.startswith("172.16.21.")) or
                   (src_ip.startswith("172.16.21.") and dst_ip.startswith("192.168.10."))):
                 # Cegah mahasiswa G10 akses zona sensitif G9
-                if src_zone in ["RUANG_KULIAH_G10_L1"] and dst_zone in ["ADMIN_G9_L2", "PEIMPINAN_G9_L2"]:
+                if src_zone in ["RUANG_KULIAH_G10_L1", "AP_MAHASISWA_G10_L3"] and dst_zone in ["ADMIN_G9_L2", "PEIMPINAN_G9_L2"]:
                     self.logger.info(f"BLOCKED: Mahasiswa G10 tidak boleh akses zona sensitif G9")
                     return
                 else:

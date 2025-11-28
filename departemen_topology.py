@@ -3,6 +3,7 @@ from mininet.net import Mininet
 from mininet.node import RemoteController, OVSKernelSwitch
 from mininet.cli import CLI
 from mininet.log import setLogLevel
+from functools import partial # PENTING: Untuk memaksa OF 1.3
 
 class DeptTopo(Topo):
     def build(self):
@@ -10,21 +11,24 @@ class DeptTopo(Topo):
         core_switch = self.addSwitch('s0')
         g9_switch = self.addSwitch('g9')
         g10_switch = self.addSwitch('g10')
+        
         g9_l1_switch = self.addSwitch('g9l1')
         g9_l2_main = self.addSwitch('g9l2')
         g9_l2_s1 = self.addSwitch('g9s1')
         g9_l2_s2 = self.addSwitch('g9s2')
         g9_l2_s3 = self.addSwitch('g9s3')
         g9_l2_s4 = self.addSwitch('g9s4')
+        
         g9_l3_main = self.addSwitch('g9l3')
         g9_l3_s1 = self.addSwitch('g9l1s')
         g9_l3_s2 = self.addSwitch('g9l2s')
         g9_l3_s3 = self.addSwitch('g9l3s')
+        
         g10_l1_switch = self.addSwitch('g10l1')
         g10_l2_switch = self.addSwitch('g10l2')
         g10_l3_switch = self.addSwitch('g10l3')
 
-        # PERBAIKAN: Gunakan /24 agar Host melakukan ARP Request ke semua tujuan
+        # --- HOST DEFINITION (Gunakan /24 agar ARP Broadcast jalan) ---
         # Gedung G9
         h1 = self.addHost('ap9l1', ip='192.168.10.1/24') 
         h2 = self.addHost('rk9l1', ip='192.168.10.2/24') 
@@ -53,7 +57,8 @@ class DeptTopo(Topo):
         h17 = self.addHost('ap9l3', ip='192.168.10.162/24')
         h18 = self.addHost('m9l3a', ip='192.168.10.163/24')
         h19 = self.addHost('m9l3b', ip='192.168.10.164/24')
-        
+
+        # Gedung G10
         h21 = self.addHost('ap10l1', ip='172.16.21.1/24') 
         h22 = self.addHost('rk10l1', ip='172.16.21.2/24') 
 
@@ -72,7 +77,7 @@ class DeptTopo(Topo):
         h31 = self.addHost('ap10l3', ip='172.16.21.35/24')
         h32 = self.addHost('m10l3a', ip='172.16.21.36/24')
 
-        # -- Links (Sama seperti sebelumnya) --
+        # -- Links --
         self.addLink(core_switch, g9_switch)
         self.addLink(core_switch, g10_switch)
         self.addLink(g9_switch, g9_l1_switch)
@@ -125,10 +130,27 @@ class DeptTopo(Topo):
 
 topos = { 'dept_topo': ( lambda: DeptTopo() ) }
 
+def run():
+    topo = DeptTopo()
+    
+    # === BAGIAN PENTING: protocols='OpenFlow13' ===
+    # Kita menggunakan partial untuk membuat custom Switch class
+    # yang default-nya menggunakan OpenFlow 1.3
+    ovs_v13 = partial(OVSKernelSwitch, protocols='OpenFlow13')
+    
+    net = Mininet(topo=topo,
+                  controller=RemoteController(name='c0', ip='127.0.0.1'),
+                  switch=ovs_v13) # Gunakan switch custom tadi
+    
+    print("\n*** Memulai Jaringan (OF 1.3)...")
+    net.start()
+    
+    print("*** Masuk ke CLI. Ketik 'exit' untuk keluar.")
+    CLI(net)
+    
+    print("*** Mematikan Jaringan...")
+    net.stop()
+
 if __name__ == '__main__':
     setLogLevel('info')
-    topo = DeptTopo()
-    net = Mininet(topo=topo, controller=RemoteController(name='c0', ip='127.0.0.1'), switch=OVSKernelSwitch)
-    net.start()
-    CLI(net)
-    net.stop()
+    run()

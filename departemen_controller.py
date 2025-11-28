@@ -13,17 +13,40 @@ class MedicalSimpleController(app_manager.RyuApp):
         self.mac_to_port = {}
         
         # DEFINISI ZONA BERDASARKAN IP ADDRESS (FLAT /24)
-        # Kita pakai list sederhana agar mudah dibaca
         
         self.zones = {
-            'MAHASISWA': ['10.0.0.101', '10.0.0.102', '10.0.0.103', '10.0.0.104'],
-            'SECURE':    ['10.0.0.11', '10.0.0.12', '10.0.0.13', '10.0.0.21', '10.0.0.91'], # Keu, Admin, Dekan, Ujian
-            'DOSEN':     ['10.0.0.31', '10.0.0.32', '10.0.0.33'],
+            # Mahasiswa: G9 AP Lt1 (.101, .102), G9 AP Lt3 (.103, .104), Aula (.105, .106)
+            'MAHASISWA': [
+                '10.0.0.101', '10.0.0.102', 
+                '10.0.0.103', '10.0.0.104', 
+                '10.0.0.105', '10.0.0.106'
+            ],
+            
+            # Lab Komputer: Diperlakukan sama seperti Mahasiswa (Student Network)
+            'LAB': [
+                '10.0.0.51', '10.0.0.52', # Lab 1
+                '10.0.0.53', '10.0.0.54', # Lab 2
+                '10.0.0.55', '10.0.0.56'  # Lab 3
+            ],
+            
+            # Secure: Keuangan, Admin, Pimpinan, Ujian
+            'SECURE': [
+                '10.0.0.11', '10.0.0.12', '10.0.0.13', '10.0.0.14', # Keuangan & Admin
+                '10.0.0.21', '10.0.0.22', # Pimpinan
+                '10.0.0.91', '10.0.0.92'  # Ujian
+            ],
+            
+            # Dosen: G9 (.31, .32), G10 Lt2 (.33, .34), G10 Lt3 (.35, .36)
+            'DOSEN': [
+                '10.0.0.31', '10.0.0.32', 
+                '10.0.0.33', '10.0.0.34', 
+                '10.0.0.35', '10.0.0.36'
+            ],
             
             # Sub-group khusus untuk rule spesifik
-            'KEUANGAN':  ['10.0.0.11', '10.0.0.12'],
-            'DEKAN':     ['10.0.0.21'],
-            'UJIAN':     ['10.0.0.91']
+            'KEUANGAN':  ['10.0.0.11', '10.0.0.12', '10.0.0.13', '10.0.0.14'], 
+            'DEKAN':     ['10.0.0.21', '10.0.0.22'],
+            'UJIAN':     ['10.0.0.91', '10.0.0.92']
         }
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -48,8 +71,9 @@ class MedicalSimpleController(app_manager.RyuApp):
     def get_zone_category(self, ip_addr):
         # Cek IP masuk kategori mana
         if ip_addr in self.zones['MAHASISWA']: return 'MAHASISWA'
-        if ip_addr in self.zones['SECURE']: return 'SECURE'
-        if ip_addr in self.zones['DOSEN']: return 'DOSEN'
+        if ip_addr in self.zones['LAB']:       return 'MAHASISWA' # Lab dianggap zona Mahasiswa
+        if ip_addr in self.zones['SECURE']:    return 'SECURE'
+        if ip_addr in self.zones['DOSEN']:     return 'DOSEN'
         return 'UNKNOWN'
 
     def check_security(self, src_ip, dst_ip):
@@ -60,15 +84,15 @@ class MedicalSimpleController(app_manager.RyuApp):
         if src_ip in self.zones['KEUANGAN'] and dst_ip in self.zones['DEKAN']:
             return True, "ALLOW: Internal Report (Keuangan -> Dekan)"
 
-        # RULE 2: Mahasiswa -> Secure (BLOCK)
+        # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
-            return False, "BLOCK: Mahasiswa mencoba akses Zona Aman"
+            return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman"
 
-        # RULE 3: Mahasiswa -> Dosen (BLOCK)
+        # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
-            return False, "BLOCK: Mahasiswa mencoba akses Dosen Pribadi"
+            return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen"
 
-        # RULE 4: Dosen -> Ujian (BLOCK) - Dosen tidak boleh akses server ujian
+        # RULE 4: Dosen -> Ujian (BLOCK)
         if src_cat == 'DOSEN' and dst_ip in self.zones['UJIAN']:
             return False, "BLOCK: Dosen akses Server Ujian"
 

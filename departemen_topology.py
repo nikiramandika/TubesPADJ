@@ -429,7 +429,6 @@ def configure_routing(net):
 
     print("  ✓ Routing configuration completed untuk semua host")
 
-def test_connectivity(net):
     """Comprehensive test connectivity between all subnets and buildings"""
     print("\n=== KOMPREHENSIF CONNECTIVITY TESTING ===")
 

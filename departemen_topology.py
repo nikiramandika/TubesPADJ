@@ -1,129 +1,105 @@
 from mininet.topo import Topo
-from mininet.node import OVSKernelSwitch
-from mininet.link import TCLink
 
 class CampusTopo(Topo):
     def build(self):
 
-        #
-        # ============================
-        #  G9 LANTAI 1
-        # ============================
-        #
-        s_g9_l1 = self.addSwitch('s_g9_l1', protocols='OpenFlow13')
+        # ========= SWITCH LIST (FORMAT WAJIB: s1, s2, s3 ...) =========
+        s1 = self.addSwitch('s1')   # G9 Lantai 1
+        s2 = self.addSwitch('s2')   # G9 Lantai 2 Main
+        s3 = self.addSwitch('s3')   # Administrasi
+        s4 = self.addSwitch('s4')   # Pimpinan
+        s5 = self.addSwitch('s5')   # Dosen G9 L2
+        s6 = self.addSwitch('s6')   # Ujian
+        s7 = self.addSwitch('s7')   # G9 Lantai 3
+        s8 = self.addSwitch('s8')   # G10 Lantai 1
+        s9 = self.addSwitch('s9')   # G10 Lantai 2
+        s10 = self.addSwitch('s10') # G10 Lantai 3
 
-        # Mahasiswa (Access Point + 2 host)
-        ap9l1 = self.addHost('ap9l1', ip='192.168.10.1/24')   # AP mahasiswa G9 L1
-        m9l1a = self.addHost('m9l1a', ip='192.168.10.2/24')   # Mahasiswa 1
-        m9l1b = self.addHost('m9l1b', ip='192.168.10.3/24')   # Mahasiswa 2
+        # ==============================================================
+        # ----------------------- G9 LANTAI 1 ---------------------------
+        # ==============================================================
+        ap9l1 = self.addHost('ap9l1')
+        m9l1a = self.addHost('m9l1a')
+        m9l1b = self.addHost('m9l1b')
 
-        self.addLink(s_g9_l1, ap9l1)
-        self.addLink(s_g9_l1, m9l1a)
-        self.addLink(s_g9_l1, m9l1b)
+        self.addLink(s1, ap9l1)
+        self.addLink(s1, m9l1a)
+        self.addLink(s1, m9l1b)
 
-        #
-        # ============================
-        #  G9 LANTAI 2
-        # ============================
-        #
-        s_g9_l2_main = self.addSwitch('s_g9_l2m', protocols='OpenFlow13')
+        # ==============================================================
+        # ----------------------- G9 LANTAI 2 ---------------------------
+        # ==============================================================
+        self.addLink(s2, s3)  # ke Administrasi
+        self.addLink(s2, s4)  # ke Pimpinan
+        self.addLink(s2, s5)  # ke Dosen
+        self.addLink(s2, s6)  # ke Ujian
 
-        # 4 Switch zona di bawah lantai 2
-        s_adm = self.addSwitch('s_adm', protocols='OpenFlow13')   # Administrasi & Keuangan
-        s_pimp = self.addSwitch('s_pimp', protocols='OpenFlow13') # Zona Pimpinan & Sekretariat
-        s_dosen9 = self.addSwitch('s_dosen9', protocols='OpenFlow13') # Zona Dosen
-        s_ujian = self.addSwitch('s_ujian', protocols='OpenFlow13')   # Zona Ujian / Assessment
+        # Admin
+        ad9s1 = self.addHost('ad9s1')
+        ad9s2 = self.addHost('ad9s2')
+        self.addLink(s3, ad9s1)
+        self.addLink(s3, ad9s2)
 
-        # Connect sub-switch ke switch utama
-        self.addLink(s_g9_l2_main, s_adm)
-        self.addLink(s_g9_l2_main, s_pimp)
-        self.addLink(s_g9_l2_main, s_dosen9)
-        self.addLink(s_g9_l2_main, s_ujian)
+        # Pimpinan
+        pk9s1 = self.addHost('pk9s1')
+        pk9s2 = self.addHost('pk9s2')
+        self.addLink(s4, pk9s1)
+        self.addLink(s4, pk9s2)
 
-        # --- Administrasi & Keuangan (high-sensitivity)
-        ad9s1 = self.addHost('ad9s1', ip='192.168.20.1/24')
-        ad9s2 = self.addHost('ad9s2', ip='192.168.20.2/24')
-        self.addLink(s_adm, ad9s1)
-        self.addLink(s_adm, ad9s2)
+        # Dosen
+        ds9s1 = self.addHost('ds9s1')
+        ds9s2 = self.addHost('ds9s2')
+        self.addLink(s5, ds9s1)
+        self.addLink(s5, ds9s2)
 
-        # --- Zona Pimpinan (very high-sensitivity)
-        pk9s1 = self.addHost('pk9s1', ip='192.168.21.1/24')
-        pk9s2 = self.addHost('pk9s2', ip='192.168.21.2/24')
-        self.addLink(s_pimp, pk9s1)
-        self.addLink(s_pimp, pk9s2)
+        # Ujian
+        uj9s1 = self.addHost('uj9s1')
+        uj9s2 = self.addHost('uj9s2')
+        self.addLink(s6, uj9s1)
+        self.addLink(s6, uj9s2)
 
-        # --- Zona Dosen
-        ds9s1 = self.addHost('ds9s1', ip='192.168.22.1/24')
-        ds9s2 = self.addHost('ds9s2', ip='192.168.22.2/24')
-        self.addLink(s_dosen9, ds9s1)
-        self.addLink(s_dosen9, ds9s2)
+        # ==============================================================
+        # ----------------------- G9 LANTAI 3 ---------------------------
+        # ==============================================================
+        l9s3a = self.addHost('l9s3a')
+        l9s3b = self.addHost('l9s3b')
+        m9l3a = self.addHost('m9l3a')
+        m9l3b = self.addHost('m9l3b')
 
-        # --- Zona Ujian (Isolated)
-        uj9s1 = self.addHost('uj9s1', ip='192.168.23.1/24')
-        uj9s2 = self.addHost('uj9s2', ip='192.168.23.2/24')
-        self.addLink(s_ujian, uj9s1)
-        self.addLink(s_ujian, uj9s2)
+        self.addLink(s7, l9s3a)
+        self.addLink(s7, l9s3b)
+        self.addLink(s7, m9l3a)
+        self.addLink(s7, m9l3b)
 
-        #
-        # ============================
-        #  G9 LANTAI 3
-        # ============================
-        #
-        s_g9_l3 = self.addSwitch('s_g9_l3', protocols='OpenFlow13')
+        # ==============================================================
+        # ----------------------- G10 LANTAI 1 --------------------------
+        # ==============================================================
+        adm10a = self.addHost('adm10a')
+        adm10b = self.addHost('adm10b')
 
-        # 3 lab
-        l9s3a = self.addHost('l9s3a', ip='192.168.30.1/24')  # Lab 1-3 host 1
-        l9s3b = self.addHost('l9s3b', ip='192.168.30.2/24')  # Lab 1-3 host 2
-        m9l3a = self.addHost('m9l3a', ip='192.168.31.1/24')  # Mahasiswa AP
-        m9l3b = self.addHost('m9l3b', ip='192.168.31.2/24')  # Mahasiswa AP
+        self.addLink(s8, adm10a)
+        self.addLink(s8, adm10b)
 
-        self.addLink(s_g9_l3, l9s3a)
-        self.addLink(s_g9_l3, l9s3b)
-        self.addLink(s_g9_l3, m9l3a)
-        self.addLink(s_g9_l3, m9l3b)
+        # ==============================================================
+        # ----------------------- G10 LANTAI 2 --------------------------
+        # ==============================================================
+        d10a = self.addHost('d10a')
+        d10b = self.addHost('d10b')
+        ap10l2 = self.addHost('ap10l2')
 
-        #
-        # ============================
-        #  G10 LANTAI 1
-        # ============================
-        #
-        s_g10_l1 = self.addSwitch('s_g10_l1', protocols='OpenFlow13')
+        self.addLink(s9, d10a)
+        self.addLink(s9, d10b)
+        self.addLink(s9, ap10l2)
 
-        adm10a = self.addHost('adm10a', ip='192.168.40.1/24')  # Administrasi
-        adm10b = self.addHost('adm10b', ip='192.168.40.2/24')
+        # ==============================================================
+        # ----------------------- G10 LANTAI 3 --------------------------
+        # ==============================================================
+        d10a3 = self.addHost('d10a3')
+        d10b3 = self.addHost('d10b3')
+        ap10l3 = self.addHost('ap10l3')
 
-        self.addLink(s_g10_l1, adm10a)
-        self.addLink(s_g10_l1, adm10b)
+        self.addLink(s10, d10a3)
+        self.addLink(s10, d10b3)
+        self.addLink(s10, ap10l3)
 
-        #
-        # ============================
-        #  G10 LANTAI 2
-        # ============================
-        #
-        s_g10_l2 = self.addSwitch('s_g10_l2', protocols='OpenFlow13')
-
-        d10a = self.addHost('d10a', ip='192.168.41.1/24')   # Dosen
-        d10b = self.addHost('d10b', ip='192.168.41.2/24')   # Dosen
-        ap10l2 = self.addHost('ap10l2', ip='192.168.42.1/24')  # AP Aula
-
-        self.addLink(s_g10_l2, d10a)
-        self.addLink(s_g10_l2, d10b)
-        self.addLink(s_g10_l2, ap10l2)
-
-        #
-        # ============================
-        #  G10 LANTAI 3
-        # ============================
-        #
-        s_g10_l3 = self.addSwitch('s_g10_l3', protocols='OpenFlow13')
-
-        d10a3 = self.addHost('d10a3', ip='192.168.43.1/24') # Dosen G10 L3
-        d10b3 = self.addHost('d10b3', ip='192.168.43.2/24')
-        ap10l3 = self.addHost('ap10l3', ip='192.168.44.1/24') # AP mahasiswa
-
-        self.addLink(s_g10_l3, d10a3)
-        self.addLink(s_g10_l3, d10b3)
-        self.addLink(s_g10_l3, ap10l3)
-
-
-topos = { 'campus': (lambda: CampusTopo()) }
+topos = {'campus': (lambda: CampusTopo())}

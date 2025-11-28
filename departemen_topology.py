@@ -23,12 +23,14 @@ class MedicalFinalTopo(Topo):
         s_g9_lt1 = self.addSwitch('s4')
         self.addLink(s_dist_g9, s_g9_lt1)
         
-        # Wireless IP: 192.168.1.0/22
-        h_mhs_wifi_1 = self.addHost('mhs_w1', ip='192.168.1.10/22')
+        # Wireless IP: 192.168.1.0/22 -> Gateway anggap 192.168.1.1
+        h_mhs_wifi_1 = self.addHost('mhs_w1', ip='192.168.1.10/22', 
+                                    defaultRoute='via 192.168.1.1')
         self.addLink(s_g9_lt1, h_mhs_wifi_1)
         
-        # Kabel IP: 192.168.10.0/27
-        h_mhs_kabel_1 = self.addHost('mhs_k1', ip='192.168.10.2/27')
+        # Kabel IP: 192.168.10.0/27 -> Gateway anggap 192.168.10.1
+        h_mhs_kabel_1 = self.addHost('mhs_k1', ip='192.168.10.2/27', 
+                                     defaultRoute='via 192.168.10.1')
         self.addLink(s_g9_lt1, h_mhs_kabel_1)
 
         # --- G9 LT 2 (Mixed Zones) ---
@@ -41,15 +43,15 @@ class MedicalFinalTopo(Topo):
         # a. Keuangan (High Sensitivity) - Kita beri IP awal range kabel
         s_adm_keu = self.addSwitch('s6')
         self.addLink(s_g9_lt2_agg, s_adm_keu)
-        h_keu_1 = self.addHost('keu_1', ip='192.168.10.33/26') 
-        h_keu_2 = self.addHost('keu_2', ip='192.168.10.34/26')
+        h_keu_1 = self.addHost('keu_1', ip='192.168.10.33/26', defaultRoute='via 192.168.10.1')
+        h_keu_2 = self.addHost('keu_2', ip='192.168.10.34/26', defaultRoute='via 192.168.10.1')
         self.addLink(s_adm_keu, h_keu_1)
         self.addLink(s_adm_keu, h_keu_2)
 
         # b. Pimpinan (Very High) - Kita beri IP tengah range kabel
         s_pimpinan = self.addSwitch('s7')
         self.addLink(s_g9_lt2_agg, s_pimpinan)
-        h_dekan = self.addHost('dekan', ip='192.168.10.50/26')
+        h_dekan = self.addHost('dekan', ip='192.168.10.50/26', defaultRoute='via 192.168.10.1')
         self.addLink(s_pimpinan, h_dekan)
 
         # c. Dosen G9 (Semi Trusted) - Kita beri IP akhir range kabel

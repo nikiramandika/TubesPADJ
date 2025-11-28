@@ -167,8 +167,6 @@ class DeptFirewall(app_manager.RyuApp):
             if src_ip.startswith("192.168.10.96") and dst_ip.startswith("192.168.10.128"):
                 self.logger.info(f"ALLOWED: Dosen mengakses Zona Ujian dari {src_ip} ke {dst_ip}")
 
-            # Log semua traffic yang diperbolehkan untuk monitoring
-            self.logger.info(f"ALLOWED: Traffic dari {src_ip} ke {dst_ip}")
         # --- END FIREWALL ---
 
         if dst in self.mac_to_port[dpid]:

@@ -73,10 +73,8 @@ class MedicalACLController(app_manager.RyuApp):
         # LOGIKA KEAMANAN / FIREWALL (REVISED ORDER)
         # PRINSIP: Cek Izin Khusus (Whitelist) DULU, baru Cek Larangan (Blacklist)
 
-        # 1. IZIN KHUSUS: KEUANGAN KE DEKAN (WHITELIST)
-        # Aturan ini harus paling atas agar tidak kena blokir aturan Mahasiswa
         if self.is_in_zone(src_ip, 'G9_KEUANGAN') and self.is_in_zone(dst_ip, 'G9_DEKAN'):
-             return True, "ALLOW: Keuangan to Dekan (Special Access)"
+             return False, "BLOCK: Keuangan to Dekan"
 
         # 2. BLOKIR MAHASISWA/PUBLIC KE KEUANGAN/DEKAN/ADMIN (BLACKLIST)
         mhs_zones = ['MHS_G9_WIFI_L1', 'MHS_G9_KABEL_L1', 'MHS_G9_WIFI_L3', 'AULA_WIFI', 'LAB_G9_L3']

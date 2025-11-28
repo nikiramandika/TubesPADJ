@@ -8,33 +8,29 @@ from ryu.lib.packet import packet, ethernet, ether_types, ipv4, arp
 
 class MedicalACLController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
+
     def __init__(self, *args, **kwargs):
         super(MedicalACLController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
 
         # DEFINISI ZONA IP (DENGAN STRICT=FALSE AGAR TIDAK ERROR)
         self.zones = {
-            # 192.168.1.0/22 sebenarnya start di 0.0, jadi butuh strict=False
+            # Zona Mahasiswa / Public
             'MHS_G9_WIFI_L1': ipaddress.ip_network('192.168.1.0/22', strict=False),
-            
             'MHS_G9_KABEL_L1': ipaddress.ip_network('192.168.10.0/27', strict=False),
-            
-            # 192.168.6.0/22 sebenarnya start di 4.0, jadi butuh strict=False
             'MHS_G9_WIFI_L3': ipaddress.ip_network('192.168.6.0/22', strict=False),
-            
             'LAB_G9_L3':      ipaddress.ip_network('192.168.10.96/25', strict=False),
             'AULA_WIFI':      ipaddress.ip_network('172.16.20.64/25', strict=False),
             
-            # Area Sensitif (List Host Spesifik - Tidak perlu strict=False karena ini ip_address)
+            # Zona Sensitif (High / Very High / Isolated)
             'G9_KEUANGAN':    [ipaddress.ip_address('192.168.10.33'), ipaddress.ip_address('192.168.10.34')],
             'G9_DEKAN':       [ipaddress.ip_address('192.168.10.50')],
             'G9_UJIAN':       [ipaddress.ip_address('192.168.10.90')],
-            'G9_DOSEN':       [ipaddress.ip_address('192.168.10.70')],
             
+            # Zona Dosen / Semi Trusted
+            'G9_DOSEN':       [ipaddress.ip_address('192.168.10.70')],
             'G10_ADMIN':      ipaddress.ip_network('172.16.21.0/28', strict=False),
             'G10_DOSEN_L2':   ipaddress.ip_network('172.16.21.16/29', strict=False),
-            
-            # 172.16.21.32 bukan awal blok /26 (awal bloknya 0), jadi butuh strict=False
             'G10_DOSEN_L3':   ipaddress.ip_network('172.16.21.32/26', strict=False)
         }
 
@@ -57,42 +53,54 @@ class MedicalACLController(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority, match=match, instructions=inst)
         datapath.send_msg(mod)
 
-    # Fungsi untuk cek apakah IP ada dalam list/network tertentu
     def is_in_zone(self, ip_str, zone_key):
-        ip = ipaddress.ip_address(ip_str)
-        target = self.zones[zone_key]
-        
-        # Jika target adalah List IP (Spesifik host)
-        if isinstance(target, list):
-            return ip in target
-        # Jika target adalah Network Subnet
-        else:
-            return ip in target
+        try:
+            ip = ipaddress.ip_address(ip_str)
+            target = self.zones[zone_key]
+            
+            if isinstance(target, list):
+                return ip in target
+            else:
+                return ip in target
+        except ValueError:
+            return False
 
     def check_security(self, src_ip, dst_ip):
-        # LOGIKA KEAMANAN / FIREWALL (REVISED ORDER)
-        # PRINSIP: Cek Izin Khusus (Whitelist) DULU, baru Cek Larangan (Blacklist)
-
-        if self.is_in_zone(src_ip, 'G9_KEUANGAN') and self.is_in_zone(dst_ip, 'G9_DEKAN'):
-             return False, "BLOCK: Keuangan to Dekan"
-
-        # 2. BLOKIR MAHASISWA/PUBLIC KE KEUANGAN/DEKAN/ADMIN (BLACKLIST)
+        # --- DEFINISI KELOMPOK ZONA ---
+        
+        # 1. Kelompok Mahasiswa (Public)
+        # Saya menghapus 'G9_UJIAN' dari sini karena Ujian biasanya bukan sumber traffic mahasiswa
         mhs_zones = ['MHS_G9_WIFI_L1', 'MHS_G9_KABEL_L1', 'MHS_G9_WIFI_L3', 'AULA_WIFI', 'LAB_G9_L3']
-        secure_zones = ['G9_KEUANGAN', 'G9_DEKAN', 'G10_ADMIN']
         
+        # 2. Kelompok Secure (Sangat Rahasia)
+        secure_zones = ['G9_KEUANGAN', 'G9_DEKAN', 'G10_ADMIN', 'G9_UJIAN']
+        
+        # 3. Kelompok Dosen (Semi Trusted)
+        dsn_zones = ['G9_DOSEN', 'G10_DOSEN_L2', 'G10_DOSEN_L3']
+
+        # --- LOGIKA PENGECEKAN (BOOLEAN) ---
         is_src_mhs = any(self.is_in_zone(src_ip, z) for z in mhs_zones)
-        is_dst_secure = any(self.is_in_zone(dst_ip, z) for z in secure_zones)
         
+        is_dst_secure = any(self.is_in_zone(dst_ip, z) for z in secure_zones)
+        is_dst_dsn    = any(self.is_in_zone(dst_ip, z) for z in dsn_zones) 
+
+        # --- ATURAN FIREWALL ---
+
+        # RULE 1: Keuangan ke Dekan (ALLOW)
+        if self.is_in_zone(src_ip, 'G9_KEUANGAN') and self.is_in_zone(dst_ip, 'G9_DEKAN'):
+             return True, "ALLOW: Keuangan to Dekan (Internal Report)"
+
+        # RULE 2: Mahasiswa ke Zona Secure (BLOCK)
         if is_src_mhs and is_dst_secure:
             return False, "BLOCK: Mahasiswa to Secure Zone"
 
-        # 3. BLOKIR ANTAR DEPARTEMEN SENSITIF LAINNYA
-        # Contoh: Dosen G9 tidak boleh akses Server Ujian
-        if self.is_in_zone(src_ip, 'G9_DOSEN') and self.is_in_zone(dst_ip, 'G9_UJIAN'):
-            return False, "BLOCK: Dosen to Ujian"
-
-        # 4. Default: ALLOW jika tidak ada rule blokir
+        # RULE 3: Mahasiswa ke Zona Dosen (BLOCK)
+        if is_src_mhs and is_dst_dsn:
+            return False, "BLOCK: Mahasiswa to Dosen Zone"
+    
+        # RULE 4: Default Allow
         return True, "ALLOW: Default"
+
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         msg = ev.msg
@@ -123,10 +131,11 @@ class MedicalACLController(app_manager.RyuApp):
             allowed, reason = self.check_security(src_ip, dst_ip)
             
             if not allowed:
-                self.logger.warning(f"SECURITY: {src_ip} -> {dst_ip} : {reason}")
-                return # DROP PACKET
+                self.logger.warning(f"BLOCK: {src_ip} -> {dst_ip} : {reason}")
+                return # DROP PACKET (Tanpa PacketOut)
             else:
-                self.logger.info(f"TRAFFIC: {src_ip} -> {dst_ip} : {reason}")
+                # Menambahkan Log untuk Traffic yang di-ALLOW
+                self.logger.info(f"ALLOW: {src_ip} -> {dst_ip} : {reason}")
 
         # L2 Switching standard
         out_port = ofproto.OFPP_FLOOD

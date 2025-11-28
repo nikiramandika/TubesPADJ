@@ -4,122 +4,87 @@ from mininet.node import RemoteController
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 
-class MedicalFinalTopo(Topo):
+class MedicalSimpleTopo(Topo):
     def build(self):
-        # CORE
+        # CORE & DISTRIBUTION
         s_core = self.addSwitch('s1', dpid='0000000000000001')
-
-        # DISTRIBUTION
         s_dist_g9 = self.addSwitch('s2', dpid='0000000000000002')
         s_dist_g10 = self.addSwitch('s3', dpid='0000000000000003')
+        
         self.addLink(s_core, s_dist_g9)
         self.addLink(s_core, s_dist_g10)
 
-        # ==========================================
-        # GEDUNG G9
-        # ==========================================
-        
-        # --- G9 LT 1 (Mahasiswa Wireless & Kabel) ---
+        # ================= GEDUNG G9 =================
+        # Mahasiswa (IP 100+)
         s_g9_lt1 = self.addSwitch('s4')
         self.addLink(s_dist_g9, s_g9_lt1)
-        
-        # Wireless IP: 192.168.1.0/22 -> Gateway anggap 192.168.1.1
-        h_mhs_wifi_1 = self.addHost('mhs_w1', ip='192.168.1.10/22', 
-                                    defaultRoute='via 192.168.1.1')
-        self.addLink(s_g9_lt1, h_mhs_wifi_1)
-        
-        # Kabel IP: 192.168.10.0/27 -> Gateway anggap 192.168.10.1
-        h_mhs_kabel_1 = self.addHost('mhs_k1', ip='192.168.10.2/27', 
-                                     defaultRoute='via 192.168.10.1')
-        self.addLink(s_g9_lt1, h_mhs_kabel_1)
+        h_mhs_1 = self.addHost('mhs1', ip='10.0.0.101/24')
+        h_mhs_2 = self.addHost('mhs2', ip='10.0.0.102/24')
+        self.addLink(s_g9_lt1, h_mhs_1)
+        self.addLink(s_g9_lt1, h_mhs_2)
 
-        # --- G9 LT 2 (Mixed Zones) ---
-        # Kabel IP Range: 192.168.10.32/26 (Range .33 - .94)
-        # Wireless IP Range: 192.168.5.0/24
-        
+        # Lantai 2 (Area Campuran)
         s_g9_lt2_agg = self.addSwitch('s5')
         self.addLink(s_dist_g9, s_g9_lt2_agg)
 
-        # a. Keuangan (High Sensitivity) - Kita beri IP awal range kabel
+        # Keuangan (IP 10-19)
         s_adm_keu = self.addSwitch('s6')
         self.addLink(s_g9_lt2_agg, s_adm_keu)
-        h_keu_1 = self.addHost('keu_1', ip='192.168.10.33/26', defaultRoute='via 192.168.10.1')
-        h_keu_2 = self.addHost('keu_2', ip='192.168.10.34/26', defaultRoute='via 192.168.10.1')
+        h_keu_1 = self.addHost('keu1', ip='10.0.0.11/24')
+        h_keu_2 = self.addHost('keu2', ip='10.0.0.12/24')
         self.addLink(s_adm_keu, h_keu_1)
         self.addLink(s_adm_keu, h_keu_2)
 
-        # b. Pimpinan (Very High) - Kita beri IP tengah range kabel
+        # Pimpinan (IP 20-29)
         s_pimpinan = self.addSwitch('s7')
         self.addLink(s_g9_lt2_agg, s_pimpinan)
-        h_dekan = self.addHost('dekan', ip='192.168.10.50/26', defaultRoute='via 192.168.10.1')
+        h_dekan = self.addHost('dekan', ip='10.0.0.21/24')
         self.addLink(s_pimpinan, h_dekan)
 
-        # c. Dosen G9 (Semi Trusted) - Kita beri IP akhir range kabel
+        # Dosen G9 (IP 30-39)
         s_dosen_g9 = self.addSwitch('s8')
         self.addLink(s_g9_lt2_agg, s_dosen_g9)
-        h_dsn_g9 = self.addHost('dsn_g9', ip='192.168.10.70/26')
+        h_dsn_g9 = self.addHost('dsn9', ip='10.0.0.31/24')
         self.addLink(s_dosen_g9, h_dsn_g9)
 
-        # d. Ujian (Isolated)
+        # Ujian (IP 90-99)
         s_ujian = self.addSwitch('s9')
         self.addLink(s_g9_lt2_agg, s_ujian)
-        h_ujian = self.addHost('ujian', ip='192.168.10.90/26')
+        h_ujian = self.addHost('ujian', ip='10.0.0.91/24')
         self.addLink(s_ujian, h_ujian)
 
-        # --- G9 LT 3 (Labs) ---
-        # Kabel IP: 192.168.10.96/25
-        # Wireless IP: 192.168.6.0/22
-        
+        # Lantai 3 (Lab & Mahasiswa)
         s_g9_lt3 = self.addSwitch('s10')
         self.addLink(s_dist_g9, s_g9_lt3)
-        
-        # Lab
-        s_lab1 = self.addSwitch('s11')
-        self.addLink(s_g9_lt3, s_lab1)
-        h_lab = self.addHost('lab1', ip='192.168.10.100/25')
-        self.addLink(s_lab1, h_lab)
-        
-        # Wifi Mahasiswa di Lt 3
-        h_mhs_wifi_3 = self.addHost('mhs_w3', ip='192.168.6.10/22')
-        self.addLink(s_g9_lt3, h_mhs_wifi_3)
+        h_mhs_3 = self.addHost('mhs3', ip='10.0.0.103/24') # Mhs Wifi Lt3
+        self.addLink(s_g9_lt3, h_mhs_3)
 
 
-        # ==========================================
-        # GEDUNG G10
-        # ==========================================
-
-        # --- G10 LT 1 (Admin) ---
-        # Kabel IP: 172.16.21.0/28
+        # ================= GEDUNG G10 =================
+        # Admin G10 (IP 10-19, sama kayak keuangan levelnya)
         s_g10_lt1 = self.addSwitch('s14')
         self.addLink(s_dist_g10, s_g10_lt1)
-        
-        h_adm_g10 = self.addHost('adm_g10', ip='172.16.21.2/28')
+        h_adm_g10 = self.addHost('adm10', ip='10.0.0.13/24')
         self.addLink(s_g10_lt1, h_adm_g10)
 
-        # --- G10 LT 2 (Dosen & Aula) ---
-        # Kabel IP: 172.16.21.16/29
-        # Wireless: 172.16.20.64/25
+        # Dosen G10 (IP 30-39)
         s_g10_lt2 = self.addSwitch('s15')
         self.addLink(s_dist_g10, s_g10_lt2)
-        
-        h_dsn_g10_2 = self.addHost('dsn_g10_2', ip='172.16.21.18/29')
-        h_aula_wifi = self.addHost('aula', ip='172.16.20.70/25')
-        self.addLink(s_g10_lt2, h_dsn_g10_2)
-        self.addLink(s_g10_lt2, h_aula_wifi)
+        h_dsn_10a = self.addHost('dsn10a', ip='10.0.0.32/24')
+        h_aula = self.addHost('aula', ip='10.0.0.104/24') # Aula = Public/Mhs
+        self.addLink(s_g10_lt2, h_dsn_10a)
+        self.addLink(s_g10_lt2, h_aula)
 
-        # --- G10 LT 3 (Dosen) ---
-        # Kabel IP: 172.16.21.32/26
         s_g10_lt3 = self.addSwitch('s16')
         self.addLink(s_dist_g10, s_g10_lt3)
-        
-        h_dsn_g10_3 = self.addHost('dsn_g10_3', ip='172.16.21.35/26')
-        self.addLink(s_g10_lt3, h_dsn_g10_3)
+        h_dsn_10b = self.addHost('dsn10b', ip='10.0.0.33/24')
+        self.addLink(s_g10_lt3, h_dsn_10b)
 
 def run():
-    topo = MedicalFinalTopo()
+    topo = MedicalSimpleTopo()
     net = Mininet(topo=topo, controller=RemoteController, autoSetMacs=True)
     net.start()
-    print("[+] Topology Started with CUSTOM VLSM IP SCHEME.")
+    print("[+] Simple Flat Topology Started (10.0.0.x/24).")
     CLI(net)
     net.stop()
 

@@ -1,41 +1,29 @@
-import ipaddress
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ethernet, ether_types, ipv4, arp
+from ryu.lib.packet import packet, ethernet, ether_types, ipv4
 
-class MedicalACLController(app_manager.RyuApp):
+class MedicalSimpleController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    def __init__(self, *args, **kwargs):
-        super(MedicalACLController, self).__init__(*args, **kwargs)
-        self.mac_to_port = {}
 
-        # DEFINISI ZONA IP (DENGAN STRICT=FALSE AGAR TIDAK ERROR)
+    def __init__(self, *args, **kwargs):
+        super(MedicalSimpleController, self).__init__(*args, **kwargs)
+        self.mac_to_port = {}
+        
+        # DEFINISI ZONA BERDASARKAN IP ADDRESS (FLAT /24)
+        # Kita pakai list sederhana agar mudah dibaca
+        
         self.zones = {
-            # 192.168.1.0/22 sebenarnya start di 0.0, jadi butuh strict=False
-            'MHS_G9_WIFI_L1': ipaddress.ip_network('192.168.1.0/22', strict=False),
+            'MAHASISWA': ['10.0.0.101', '10.0.0.102', '10.0.0.103', '10.0.0.104'],
+            'SECURE':    ['10.0.0.11', '10.0.0.12', '10.0.0.13', '10.0.0.21', '10.0.0.91'], # Keu, Admin, Dekan, Ujian
+            'DOSEN':     ['10.0.0.31', '10.0.0.32', '10.0.0.33'],
             
-            'MHS_G9_KABEL_L1': ipaddress.ip_network('192.168.10.0/27', strict=False),
-            
-            # 192.168.6.0/22 sebenarnya start di 4.0, jadi butuh strict=False
-            'MHS_G9_WIFI_L3': ipaddress.ip_network('192.168.6.0/22', strict=False),
-            
-            'LAB_G9_L3':      ipaddress.ip_network('192.168.10.96/25', strict=False),
-            'AULA_WIFI':      ipaddress.ip_network('172.16.20.64/25', strict=False),
-            
-            # Area Sensitif (List Host Spesifik - Tidak perlu strict=False karena ini ip_address)
-            'G9_KEUANGAN':    [ipaddress.ip_address('192.168.10.33'), ipaddress.ip_address('192.168.10.34')],
-            'G9_DEKAN':       [ipaddress.ip_address('192.168.10.50')],
-            'G9_UJIAN':       [ipaddress.ip_address('192.168.10.90')],
-            'G9_DOSEN':       [ipaddress.ip_address('192.168.10.70')],
-            
-            'G10_ADMIN':      ipaddress.ip_network('172.16.21.0/28', strict=False),
-            'G10_DOSEN_L2':   ipaddress.ip_network('172.16.21.16/29', strict=False),
-            
-            # 172.16.21.32 bukan awal blok /26 (awal bloknya 0), jadi butuh strict=False
-            'G10_DOSEN_L3':   ipaddress.ip_network('172.16.21.32/26', strict=False)
+            # Sub-group khusus untuk rule spesifik
+            'KEUANGAN':  ['10.0.0.11', '10.0.0.12'],
+            'DEKAN':     ['10.0.0.21'],
+            'UJIAN':     ['10.0.0.91']
         }
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -57,42 +45,35 @@ class MedicalACLController(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority, match=match, instructions=inst)
         datapath.send_msg(mod)
 
-    # Fungsi untuk cek apakah IP ada dalam list/network tertentu
-    def is_in_zone(self, ip_str, zone_key):
-        ip = ipaddress.ip_address(ip_str)
-        target = self.zones[zone_key]
-        
-        # Jika target adalah List IP (Spesifik host)
-        if isinstance(target, list):
-            return ip in target
-        # Jika target adalah Network Subnet
-        else:
-            return ip in target
+    def get_zone_category(self, ip_addr):
+        # Cek IP masuk kategori mana
+        if ip_addr in self.zones['MAHASISWA']: return 'MAHASISWA'
+        if ip_addr in self.zones['SECURE']: return 'SECURE'
+        if ip_addr in self.zones['DOSEN']: return 'DOSEN'
+        return 'UNKNOWN'
 
     def check_security(self, src_ip, dst_ip):
-        # LOGIKA KEAMANAN / FIREWALL (REVISED ORDER)
-        # PRINSIP: Cek Izin Khusus (Whitelist) DULU, baru Cek Larangan (Blacklist)
+        src_cat = self.get_zone_category(src_ip)
+        dst_cat = self.get_zone_category(dst_ip)
 
-        if self.is_in_zone(src_ip, 'G9_KEUANGAN') and self.is_in_zone(dst_ip, 'G9_DEKAN'):
-             return False, "BLOCK: Keuangan to Dekan"
+        # RULE 1: Keuangan ke Dekan -> ALLOW (Izin Khusus Internal Secure)
+        if src_ip in self.zones['KEUANGAN'] and dst_ip in self.zones['DEKAN']:
+            return True, "ALLOW: Internal Report (Keuangan -> Dekan)"
 
-        # 2. BLOKIR MAHASISWA/PUBLIC KE KEUANGAN/DEKAN/ADMIN (BLACKLIST)
-        mhs_zones = ['MHS_G9_WIFI_L1', 'MHS_G9_KABEL_L1', 'MHS_G9_WIFI_L3', 'AULA_WIFI', 'LAB_G9_L3']
-        secure_zones = ['G9_KEUANGAN', 'G9_DEKAN', 'G10_ADMIN']
-        
-        is_src_mhs = any(self.is_in_zone(src_ip, z) for z in mhs_zones)
-        is_dst_secure = any(self.is_in_zone(dst_ip, z) for z in secure_zones)
-        
-        if is_src_mhs and is_dst_secure:
-            return False, "BLOCK: Mahasiswa to Secure Zone"
+        # RULE 2: Mahasiswa -> Secure (BLOCK)
+        if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
+            return False, "BLOCK: Mahasiswa mencoba akses Zona Aman"
 
-        # 3. BLOKIR ANTAR DEPARTEMEN SENSITIF LAINNYA
-        # Contoh: Dosen G9 tidak boleh akses Server Ujian
-        if self.is_in_zone(src_ip, 'G9_DOSEN') and self.is_in_zone(dst_ip, 'G9_UJIAN'):
-            return False, "BLOCK: Dosen to Ujian"
+        # RULE 3: Mahasiswa -> Dosen (BLOCK)
+        if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
+            return False, "BLOCK: Mahasiswa mencoba akses Dosen Pribadi"
 
-        # 4. Default: ALLOW jika tidak ada rule blokir
-        return True, "ALLOW: Default"
+        # RULE 4: Dosen -> Ujian (BLOCK) - Dosen tidak boleh akses server ujian
+        if src_cat == 'DOSEN' and dst_ip in self.zones['UJIAN']:
+            return False, "BLOCK: Dosen akses Server Ujian"
+
+        return True, "ALLOW: Akses Diizinkan"
+
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         msg = ev.msg
@@ -103,18 +84,16 @@ class MedicalACLController(app_manager.RyuApp):
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
-
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            return
+        
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP: return
 
         dst = eth.dst
         src = eth.src
         dpid = datapath.id
-
         self.mac_to_port.setdefault(dpid, {})
         self.mac_to_port[dpid][src] = in_port
 
-        # --- SECURITY CHECK ---
+        # --- LOGIKA FIREWALL ---
         if eth.ethertype == ether_types.ETH_TYPE_IP:
             ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
             src_ip = ipv4_pkt.src
@@ -123,12 +102,12 @@ class MedicalACLController(app_manager.RyuApp):
             allowed, reason = self.check_security(src_ip, dst_ip)
             
             if not allowed:
-                self.logger.warning(f"SECURITY: {src_ip} -> {dst_ip} : {reason}")
-                return # DROP PACKET
+                self.logger.warning(f"{reason} | {src_ip} -> {dst_ip}")
+                return # DROP (Paket dibuang, tidak diteruskan)
             else:
-                self.logger.info(f"TRAFFIC: {src_ip} -> {dst_ip} : {reason}")
+                self.logger.info(f"{reason} | {src_ip} -> {dst_ip}")
 
-        # L2 Switching standard
+        # Standard L2 Switching (FLOOD / Forward)
         out_port = ofproto.OFPP_FLOOD
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
@@ -142,11 +121,8 @@ class MedicalACLController(app_manager.RyuApp):
                 return
             else:
                 self.add_flow(datapath, 1, match, actions)
-
+        
         data = None
-        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-            data = msg.data
-
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-                                  in_port=in_port, actions=actions, data=data)
+        if msg.buffer_id == ofproto.OFP_NO_BUFFER: data = msg.data
+        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)

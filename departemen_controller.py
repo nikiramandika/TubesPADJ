@@ -108,13 +108,29 @@ class DeptFirewall(app_manager.RyuApp):
             # Batasi akses ke zona sensitif
             if (src_ip.startswith("192.168.10.0") or      # Ruang Kuliah G9 L1
                 src_ip.startswith("172.16.21.0") or      # Ruang Kuliah G10 L1 (hanya .0/.1/.2)
-                src_ip.startswith("192.168.10.160")):      # Lab & Mahasiswa G9 L3
-                if dst_ip.startswith("192.168.10.32") or dst_ip.startswith("192.168.10.64"):
+                src_ip.startswith("192.168.10.159")):      # Lab & Mahasiswa G9 L3
+                if dst_ip.startswith("192.168.10.42") or dst_ip.startswith("192.168.10.52"):  # Blok ke Admin & Pimpinan
                     self.logger.info(f"BLOCKED: Ruang Kuliah/Mahasiswa tidak diizinkan mengakses zona sensitif dari {src_ip} ke {dst_ip}")
                     return
 
                 # Izinkan akses ke zona pendidikan lainnya
                 self.logger.info(f"ALLOWED: Ruang Kuliah/Mahasiswa mengakses zona edukasi {dst_ip} dari {src_ip}")
+
+            # Rules untuk Dosen yang mencoba mengakses zona lain
+            if src_ip.startswith("192.168.10.32") and dst_ip.startswith("192.168.10.0"):  # Dosen -> Ruang Kuliah
+                self.logger.info(f"ALLOWED: Dosen mengakses Ruang Kuliah dari {src_ip} ke {dst_ip}")
+
+            # Rules untuk traffic antar gedung (bypass untuk testing)
+            if (src_ip.startswith("192.168.10.") and dst_ip.startswith("172.16.21.")) or \
+               (src_ip.startswith("172.16.21.") and dst_ip.startswith("192.168.10.")):
+                self.logger.info(f"ALLOWED: Antara gedung traffic dari {src_ip} ke {dst_ip}")
+                return
+
+            # Rules untuk traffic dalam subnet yang sama (allow untuk testing)
+            if (src_ip.startswith("192.168.10.") and dst_ip.startswith("192.168.10.")) or \
+               (src_ip.startswith("172.16.21.") and dst_ip.startswith("172.16.21.")):
+                self.logger.info(f"ALLOWED: Same subnet traffic dari {src_ip} ke {dst_ip}")
+                return
 
             # Rules untuk GEDUNG G10 (172.16.21.0/24)
             # Subnet breakdown:

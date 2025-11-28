@@ -137,22 +137,18 @@ topos = { 'dept_topo': ( lambda: DeptTopo() ) }
 
 def run():
     topo = DeptTopo()
-
-    net = Mininet(topo=topo,
-                  controller=RemoteController(name='c0', ip='127.0.0.1'),
+    
+    net = Mininet(topo=topo, 
+                  controller=RemoteController(name='c0', ip='127.0.0.1'), 
                   switch=OVSKernelSwitch)
-
-    print("\n*** Memulai Jaringan (Departemen Topology - Fixed)...")
+    
+    print("\n*** Memulai Jaringan (Departemen Topology)...")
     net.start()
-
-    # Test connectivity
-    print("\n*** Testing basic connectivity...")
-    net.pingAll()
-
-    print("\n*** Masuk ke CLI. Ketik 'exit' untuk keluar.")
+    
+    print("*** Masuk ke CLI. Ketik 'exit' untuk keluar.")
     CLI(net)
-
-    print("\n*** Mematikan Jaringan...")
+    
+    print("*** Mematikan Jaringan...")
     net.stop()
 
 if __name__ == '__main__':

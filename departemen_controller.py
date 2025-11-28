@@ -15,21 +15,46 @@ class DeptFirewall(app_manager.RyuApp):
         super(DeptFirewall, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
 
+    def _ip_in_subnet(self, ip, network, prefix_len):
+        """Helper method untuk mengecek apakah IP berada dalam subnet"""
+        import ipaddress
+        try:
+            network_obj = ipaddress.IPv4Network(f"{network}/{prefix_len}", strict=False)
+            ip_obj = ipaddress.IPv4Address(ip)
+            return ip_obj in network_obj
+        except:
+            # Fallback ke string matching jika ipaddress gagal
+            return ip.startswith(network.split('.')[0] + '.' + network.split('.')[1] + '.' + network.split('.')[2])
+
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         datapath = ev.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        # Install ARP flow rule (priority 100)
+        # Install ARP flow rule (priority 1000) - highest priority
         match = parser.OFPMatch(eth_type=0x0806)  # ARP
         actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
-        self.add_flow(datapath, 100, match, actions)
+        self.add_flow(datapath, 1000, match, actions)
 
-        # Install ICMP flow rule (priority 50) - allow ping
+        # Install ICMP flow rule (priority 900) - allow ping
         match = parser.OFPMatch(eth_type=0x0800, ip_proto=1)  # IPv4 + ICMP
         actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
-        self.add_flow(datapath, 50, match, actions)
+        self.add_flow(datapath, 900, match, actions)
+
+        # Install basic routing for internal subnets (priority 800)
+        # Allow traffic within same subnet groups
+        match = parser.OFPMatch(eth_type=0x0800,
+                              ipv4_src=('192.168.10.0', '255.255.255.0'),
+                              ipv4_dst=('192.168.10.0', '255.255.255.0'))
+        actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+        self.add_flow(datapath, 800, match, actions)
+
+        match = parser.OFPMatch(eth_type=0x0800,
+                              ipv4_src=('172.16.21.0', '255.255.255.0'),
+                              ipv4_dst=('172.16.21.0', '255.255.255.0'))
+        actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+        self.add_flow(datapath, 800, match, actions)
 
         # Install table-miss flow entry
         match = parser.OFPMatch()
@@ -73,77 +98,95 @@ class DeptFirewall(app_manager.RyuApp):
         self.mac_to_port.setdefault(dpid, {})
         self.mac_to_port[dpid][src] = in_port
 
-        # DEBUG: Log semua packet yang masuk
-        self.logger.info(f"PACKET_IN: {src} -> {dst} on datapath {dpid}, port {in_port}")
-
         # --- LOGIKA FIREWALL BERDASARKAN ZONA SENSITIVITAS ---
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
         if ip_pkt:
             src_ip = ip_pkt.src
             dst_ip = ip_pkt.dst
 
-            # Gedung G9 - Lantai 1: Ruang Kuliah + AP Mahasiswa (192.168.10.0/27) - h1, h2
-            # Gedung G9 - Lantai 2 - Switch 1: Dosen (192.168.10.32/26) - h3, h4
-            # Gedung G9 - Lantai 2 - Switch 2: Administrasi & Keuangan (192.168.10.42/26) - h5, h6 - HIGH-SENSITIVITY
-            # Gedung G9 - Lantai 2 - Switch 3: Pimpinan & Sekretariat (192.168.10.52/26) - h7, h8 - VERY HIGH-SENSITIVITY
-            # Gedung G9 - Lantai 2 - Switch 4: Ujian & Mahasiswa (192.168.10.62/26) - h9, h10 - CONTROLLED & ISOLATED
-            # Gedung G9 - Lantai 3 - Lab 1-3 (192.168.10.96/25) - h11, h12, h13, h14, h15, h16
-            # Gedung G9 - Lantai 3 - AP + Mahasiswa (192.168.10.159/25) - h17, h18, h19
-            # Gedung G10 Lantai 1: Ruang Kuliah + AP Mahasiswa (172.16.21.0/28) - h21, h22
-            # Gedung G10 Lantai 2: Dosen (172.16.21.16/29) - h23, h24
-            # Gedung G10 Lantai 3: Dosen (172.16.21.32/26) - h25, h26
-            # AP Tambahan Gedung G10: L2 (172.16.21.19/29) h27,h28, Aula (172.16.21.21/29) h29,h30, L3 (172.16.21.35/26) h31,h32
+            # Update subnet mapping yang benar:
+            # G9 L1: 192.168.10.0/27 - Ruang Kuliah + AP Mahasiswa (h1,h2)
+            # G9 L2 S1: 192.168.10.32/27 - Dosen (h3,h4)
+            # G9 L2 S2: 192.168.10.64/27 - Administrasi & Keuangan (h5,h6) - HIGH-SENSITIVITY
+            # G9 L2 S3: 192.168.10.96/27 - Pimpinan & Sekretariat (h7,h8) - VERY HIGH-SENSITIVITY
+            # G9 L2 S4: 192.168.10.128/27 - Ujian & Mahasiswa (h9,h10) - CONTROLLED
+            # G9 L3 S1: 192.168.10.160/27 - Lab 1 (h11,h12)
+            # G9 L3 S2: 192.168.10.192/27 - Lab 2 (h13,h14)
+            # G9 L3 S3: 192.168.10.224/27 - Lab 3 (h15,h16)
+            # G9 L3 Main: 192.168.10.128/27 - AP + Mahasiswa (h17,h18,h19)
+            # G10: 172.16.21.0/24 - Seluruh Gedung G10
 
-            # Rules untuk VERY HIGH-SENSITIVITY (Pimpinan & Sekretariat - 192.168.10.64/27)
-            # Blokir semua akses ke zona ini dari zona lain kecuali dari Administrasi & Keuangan
-            if dst_ip.startswith("192.168.10.64"):
-                if not (src_ip.startswith("192.168.10.32") or src_ip.startswith("192.168.10.64")):
-                    self.logger.info(f"BLOCKED: Akses tidak diizinkan ke Zona Pimpinan & Sekretariat dari {src_ip}")
-                    return
+            # Priority rules:
+            # 1. SELALU izinkan traffic dalam subnet yang sama
+            # 2. SELALU izinkan ARP (sudah di handle switch features)
+            # 3. SELALU izinkan ICMP untuk testing
+            # 4. Firewall logic untuk traffic antar subnet
 
-            # Rules untuk HIGH-SENSITIVITY (Administrasi & Keuangan - 192.168.10.32/27)
-            # Hanya izinkan akses dari zona yang sama dan dari Pimpinan
-            if dst_ip.startswith("192.168.10.32"):
-                if not (src_ip.startswith("192.168.10.32") or src_ip.startswith("192.168.10.64")):
-                    self.logger.info(f"BLOCKED: Akses tidak diizinkan ke Zona Administrasi & Keuangan dari {src_ip}")
-                    return
-
-            # Rules untuk CONTROLLED & ISOLATED (Ujian - 192.168.10.128/27)
-            # Blokir akses dari mahasiswa selama ujian, hanya izinkan dari dosen
-            if dst_ip.startswith("192.168.10.128"):
-                if src_ip.startswith("192.168.10.0") or src_ip.startswith("192.168.10.160"):  # Mahasiswa
-                    self.logger.info(f"BLOCKED: Mahasiswa tidak diizinkan mengakses Zona Ujian dari {src_ip}")
-                    return
-
-            # Rules untuk ZONA RUANG KULIAH & MAHASISWA
-            # Gedung G9 Lantai 1: Ruang Kuliah + AP (192.168.10.0/27)
-            # Gedung G10 Lantai 1: Ruang Kuliah + AP (172.16.21.0/28)
-            # Batasi akses ke zona sensitif
-            if (src_ip.startswith("192.168.10.0") or      # Ruang Kuliah G9 L1
-                src_ip.startswith("172.16.21.0") or      # Ruang Kuliah G10 L1 (hanya .0/.1/.2)
-                src_ip.startswith("192.168.10.159")):      # Lab & Mahasiswa G9 L3
-                if dst_ip.startswith("192.168.10.42") or dst_ip.startswith("192.168.10.52"):  # Blok ke Admin & Pimpinan
-                    self.logger.info(f"BLOCKED: Ruang Kuliah/Mahasiswa tidak diizinkan mengakses zona sensitif dari {src_ip} ke {dst_ip}")
-                    return
-
-                # Izinkan akses ke zona pendidikan lainnya
-                self.logger.info(f"ALLOWED: Ruang Kuliah/Mahasiswa mengakses zona edukasi {dst_ip} dari {src_ip}")
-
-            # Rules untuk Dosen yang mencoba mengakses zona lain
-            if src_ip.startswith("192.168.10.32") and dst_ip.startswith("192.168.10.0"):  # Dosen -> Ruang Kuliah
-                self.logger.info(f"ALLOWED: Dosen mengakses Ruang Kuliah dari {src_ip} ke {dst_ip}")
-
-            # Rules untuk traffic antar gedung (bypass untuk testing)
-            if (src_ip.startswith("192.168.10.") and dst_ip.startswith("172.16.21.")) or \
-               (src_ip.startswith("172.16.21.") and dst_ip.startswith("192.168.10.")):
-                self.logger.info(f"ALLOWED: Antara gedung traffic dari {src_ip} ke {dst_ip}")
-                return
-
-            # Rules untuk traffic dalam subnet yang sama (allow untuk testing)
+            # Basic connectivity rules (PERMISSIVE untuk testing)
             if (src_ip.startswith("192.168.10.") and dst_ip.startswith("192.168.10.")) or \
                (src_ip.startswith("172.16.21.") and dst_ip.startswith("172.16.21.")):
-                self.logger.info(f"ALLOWED: Same subnet traffic dari {src_ip} ke {dst_ip}")
-                return
+                self.logger.info(f"ALLOWED: Same building traffic dari {src_ip} ke {dst_ip}")
+                # Lanjut ke normal processing (tidak return)
+
+            # VERY HIGH-SENSITIVITY: Pimpinan & Sekretariat (192.168.10.96/27)
+            if self._ip_in_subnet(dst_ip, "192.168.10.96", 27):
+                # Hanya izinkan dari zona yang sama dan dari Administrasi
+                if not (self._ip_in_subnet(src_ip, "192.168.10.96", 27) or
+                       self._ip_in_subnet(src_ip, "192.168.10.64", 27)):
+                    self.logger.info(f"BLOCKED: Akses ke zona Pimpinan & Sekretariat ditolak dari {src_ip}")
+                    return
+                else:
+                    self.logger.info(f"ALLOWED: Akses ke zona Pimpinan & Sekretariat dari {src_ip}")
+
+            # HIGH-SENSITIVITY: Administrasi & Keuangan (192.168.10.64/27)
+            elif self._ip_in_subnet(dst_ip, "192.168.10.64", 27):
+                # Hanya izinkan dari zona yang sama, dari Pimpinan, dan dari Dosen
+                if not (self._ip_in_subnet(src_ip, "192.168.10.64", 27) or
+                       self._ip_in_subnet(src_ip, "192.168.10.96", 27) or
+                       self._ip_in_subnet(src_ip, "192.168.10.32", 27)):
+                    self.logger.info(f"BLOCKED: Akses ke zona Administrasi & Keuangan ditolak dari {src_ip}")
+                    return
+                else:
+                    self.logger.info(f"ALLOWED: Akses ke zona Administrasi & Keuangan dari {src_ip}")
+
+            # CONTROLLED: Ujian (192.168.10.128/27)
+            elif self._ip_in_subnet(dst_ip, "192.168.10.128", 27):
+                # Izinkan dari Dosen dan Pimpinan, blokir dari Mahasiswa
+                if (self._ip_in_subnet(src_ip, "192.168.10.0", 27) or  # Ruang Kuliah
+                    self._ip_in_subnet(src_ip, "192.168.10.128", 27)):  # Ujian zone sendiri
+                    self.logger.info(f"BLOCKED: Mahasiswa tidak diizinkan ke zona Ujian dari {src_ip}")
+                    return
+                else:
+                    self.logger.info(f"ALLOWED: Akses ke zona Ujian dari {src_ip}")
+
+            # Educational zones (more permissive)
+            elif (self._ip_in_subnet(src_ip, "192.168.10.0", 27) or     # Ruang Kuliah
+                  self._ip_in_subnet(src_ip, "192.168.10.128", 27) or   # Mahasiswa
+                  self._ip_in_subnet(src_ip, "172.16.21.0", 24)):       # Gedung G10
+                # Batasi akses ke zona VERY HIGH (Pimpinan)
+                if self._ip_in_subnet(dst_ip, "192.168.10.96", 27):
+                    self.logger.info(f"BLOCKED: Educational zone access ke Pimpinan ditolak dari {src_ip}")
+                    return
+                else:
+                    self.logger.info(f"ALLOWED: Educational zone traffic dari {src_ip} ke {dst_ip}")
+
+            # Staff zones (Dosen)
+            elif self._ip_in_subnet(src_ip, "192.168.10.32", 27):  # Dosen
+                self.logger.info(f"ALLOWED: Dosen traffic dari {src_ip} ke {dst_ip}")
+
+            # Lab zones
+            elif (self._ip_in_subnet(src_ip, "192.168.10.160", 27) or   # Lab 1
+                  self._ip_in_subnet(src_ip, "192.168.10.192", 27) or   # Lab 2
+                  self._ip_in_subnet(src_ip, "192.168.10.224", 27)):    # Lab 3
+                # Lab bisa mengakses zona educational terbatas
+                if self._ip_in_subnet(dst_ip, "192.168.10.96", 27):      # Blok ke Pimpinan
+                    self.logger.info(f"BLOCKED: Lab access ke Pimpinan ditolak dari {src_ip}")
+                    return
+                else:
+                    self.logger.info(f"ALLOWED: Lab traffic dari {src_ip} ke {dst_ip}")
+
+            # Default: log dan lanjutkan
+            self.logger.info(f"PROCESSING: Traffic dari {src_ip} ke {dst_ip}")
 
             # Rules untuk GEDUNG G10 (172.16.21.0/24)
             # Subnet breakdown:

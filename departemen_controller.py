@@ -69,14 +69,17 @@ class DeptFirewall(app_manager.RyuApp):
             src_ip = ip_pkt.src
             dst_ip = ip_pkt.dst
 
-            # Gedung G9 - Lantai 1: Ruang Kuliah + AP Mahasiswa (192.168.10.0/27)
-            # Gedung G9 - Lantai 2 - Switch 1: Administrasi & Keuangan (192.168.10.32/27) - HIGH-SENSITIVITY
-            # Gedung G9 - Lantai 2 - Switch 2: Pimpinan & Sekretariat (192.168.10.64/27) - VERY HIGH-SENSITIVITY
-            # Gedung G9 - Lantai 2 - Switch 3: Dosen (192.168.10.96/27) - SEMI-TRUSTED
-            # Gedung G9 - Lantai 2 - Switch 4: Ujian & Mahasiswa (192.168.10.128/27) - CONTROLLED & ISOLATED
-            # Gedung G9 - Lantai 3: Lab & Mahasiswa + AP (192.168.10.96/25)
-            # Gedung G10 Lantai 1: Ruang Kuliah + AP Mahasiswa (172.16.21.0/28)
-            # Gedung G10 Lantai 2-3: Dosen + AP Mahasiswa + AP Aula (172.16.21.16/29 & 172.16.21.32/26)
+            # Gedung G9 - Lantai 1: Ruang Kuliah + AP Mahasiswa (192.168.10.0/27) - h1, h2
+            # Gedung G9 - Lantai 2 - Switch 1: Dosen (192.168.10.32/26) - h3, h4
+            # Gedung G9 - Lantai 2 - Switch 2: Administrasi & Keuangan (192.168.10.42/26) - h5, h6 - HIGH-SENSITIVITY
+            # Gedung G9 - Lantai 2 - Switch 3: Pimpinan & Sekretariat (192.168.10.52/26) - h7, h8 - VERY HIGH-SENSITIVITY
+            # Gedung G9 - Lantai 2 - Switch 4: Ujian & Mahasiswa (192.168.10.62/26) - h9, h10 - CONTROLLED & ISOLATED
+            # Gedung G9 - Lantai 3 - Lab 1-3 (192.168.10.96/25) - h11, h12, h13, h14, h15, h16
+            # Gedung G9 - Lantai 3 - AP + Mahasiswa (192.168.10.159/25) - h17, h18, h19
+            # Gedung G10 Lantai 1: Ruang Kuliah + AP Mahasiswa (172.16.21.0/28) - h21, h22
+            # Gedung G10 Lantai 2: Dosen (172.16.21.16/29) - h23, h24
+            # Gedung G10 Lantai 3: Dosen (172.16.21.32/26) - h25, h26
+            # AP Tambahan Gedung G10: L2 (172.16.21.19/29) h27,h28, Aula (172.16.21.21/29) h29,h30, L3 (172.16.21.35/26) h31,h32
 
             # Rules untuk VERY HIGH-SENSITIVITY (Pimpinan & Sekretariat - 192.168.10.64/27)
             # Blokir semua akses ke zona ini dari zona lain kecuali dari Administrasi & Keuangan

@@ -444,9 +444,6 @@ def run():
     print("*** Konfigurasi routing untuk antar subnet...")
     configure_routing(net)
 
-    print("*** Testing koneksi...")
-    test_connectivity(net)
-
     print("\n*** Masuk ke CLI. Ketik 'exit' untuk keluar.")
     CLI(net)
     

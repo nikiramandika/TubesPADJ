@@ -1,3 +1,4 @@
+import ipaddress
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
@@ -5,43 +6,91 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet, ethernet, ether_types, ipv4, arp
 
-class MedicalSecurityController(app_manager.RyuApp):
+class MedicalACLController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(MedicalSecurityController, self).__init__(*args, **kwargs)
+        super(MedicalACLController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
+
+        # DEFINISI ZONA IP (Sesuai data Anda)
+        # Kita buat Network Object untuk memudahkan pengecekan
+        self.zones = {
+            'MHS_G9_WIFI_L1': ipaddress.ip_network('192.168.1.0/22'),
+            'MHS_G9_KABEL_L1': ipaddress.ip_network('192.168.10.0/27'),
+            'MHS_G9_WIFI_L3': ipaddress.ip_network('192.168.6.0/22'),
+            'LAB_G9_L3':      ipaddress.ip_network('192.168.10.96/25'),
+            'AULA_WIFI':      ipaddress.ip_network('172.16.20.64/25'),
+            
+            # Area Sensitif (G9 Lt 2 - Kabel)
+            # Karena IP mereka tergabung dalam 192.168.10.32/26, 
+            # kita definisikan berdasarkan Host Spesifik yang kita assign di Mininet
+            'G9_KEUANGAN':    [ipaddress.ip_address('192.168.10.33'), ipaddress.ip_address('192.168.10.34')],
+            'G9_DEKAN':       [ipaddress.ip_address('192.168.10.50')],
+            'G9_UJIAN':       [ipaddress.ip_address('192.168.10.90')],
+            'G9_DOSEN':       [ipaddress.ip_address('192.168.10.70')],
+            
+            'G10_ADMIN':      ipaddress.ip_network('172.16.21.0/28'),
+            'G10_DOSEN_L2':   ipaddress.ip_network('172.16.21.16/29'),
+            'G10_DOSEN_L3':   ipaddress.ip_network('172.16.21.32/26')
+        }
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         datapath = ev.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-
-        # Default flow: Send everything to Controller
         match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
-                                          ofproto.OFPCML_NO_BUFFER)]
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
 
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
-        
         if buffer_id:
-            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
-                                    priority=priority, match=match,
-                                    instructions=inst)
+            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id, priority=priority, match=match, instructions=inst)
         else:
-            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                    match=match, instructions=inst)
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority, match=match, instructions=inst)
         datapath.send_msg(mod)
 
-    def get_subnet(self, ip_addr):
-        # Mengambil 3 segmen pertama IP (misal 10.0.10) untuk identifikasi zona
-        parts = ip_addr.split('.')
-        return ".".join(parts[:3])
+    # Fungsi untuk cek apakah IP ada dalam list/network tertentu
+    def is_in_zone(self, ip_str, zone_key):
+        ip = ipaddress.ip_address(ip_str)
+        target = self.zones[zone_key]
+        
+        # Jika target adalah List IP (Spesifik host)
+        if isinstance(target, list):
+            return ip in target
+        # Jika target adalah Network Subnet
+        else:
+            return ip in target
+
+    def check_security(self, src_ip, dst_ip):
+        # LOGIKA KEAMANAN / FIREWALL
+        
+        # 1. BLOKIR MAHASISWA/PUBLIC KE KEUANGAN/DEKAN/ADMIN
+        mhs_zones = ['MHS_G9_WIFI_L1', 'MHS_G9_KABEL_L1', 'MHS_G9_WIFI_L3', 'AULA_WIFI', 'LAB_G9_L3']
+        secure_zones = ['G9_KEUANGAN', 'G9_DEKAN', 'G10_ADMIN']
+        
+        is_src_mhs = any(self.is_in_zone(src_ip, z) for z in mhs_zones)
+        is_dst_secure = any(self.is_in_zone(dst_ip, z) for z in secure_zones)
+        
+        if is_src_mhs and is_dst_secure:
+            return False, "BLOCK: Mahasiswa to Secure Zone"
+
+        # 2. BLOKIR ANTAR DEPARTEMEN SENSITIF (Keuangan tdk bisa ke Dekan, Dosen tdk bisa ke Ujian)
+        # Contoh: Dosen G9 (192.168.10.70) ke Ujian (192.168.10.90)
+        if self.is_in_zone(src_ip, 'G9_DOSEN') and self.is_in_zone(dst_ip, 'G9_UJIAN'):
+            return False, "BLOCK: Dosen to Ujian"
+            
+        if self.is_in_zone(src_ip, 'G9_KEUANGAN') and self.is_in_zone(dst_ip, 'G9_DEKAN'):
+             # Misal: Keuangan boleh ke Dekan? Kalau tidak, return False.
+             # Kita anggap sesama pimpinan boleh, tapi kalau mau strict:
+             return True, "ALLOW: Keuangan to Dekan"
+
+        # 3. Default: ALLOW jika tidak ada rule blokir
+        return True, "ALLOW: Default"
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -53,8 +102,7 @@ class MedicalSecurityController(app_manager.RyuApp):
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
-        
-        # Ignore LLDP/IPv6 for simplicity
+
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
 
@@ -65,43 +113,29 @@ class MedicalSecurityController(app_manager.RyuApp):
         self.mac_to_port.setdefault(dpid, {})
         self.mac_to_port[dpid][src] = in_port
 
-        # --- SECURITY LOGIC STARTS HERE ---
-        
-        # 1. Allow ARP (Address Resolution Protocol)
-        # ARP diperlukan agar host bisa menemukan MAC address host lain
-        if eth.ethertype == ether_types.ETH_TYPE_ARP:
-            # Lanjutkan ke L2 Switching logic di bawah
-            pass
-            
-        # 2. Check IPv4 Traffic for Zone Violation
-        elif eth.ethertype == ether_types.ETH_TYPE_IP:
+        # --- SECURITY CHECK ---
+        if eth.ethertype == ether_types.ETH_TYPE_IP:
             ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
             src_ip = ipv4_pkt.src
             dst_ip = ipv4_pkt.dst
             
-            src_subnet = self.get_subnet(src_ip)
-            dst_subnet = self.get_subnet(dst_ip)
+            allowed, reason = self.check_security(src_ip, dst_ip)
             
-            # RULE: Jika Subnet (Zona) berbeda, BLOCK traffik!
-            # Pengecualian: Bisa ditambahkan di sini (misal server pusat)
-            if src_subnet != dst_subnet:
-                self.logger.warning(f"SECURITY ALERT: Blocked traffic from {src_ip} to {dst_ip} (Cross-Zone Violation)")
-                return # DROP PACKET (Jangan diproses lanjut)
-            
-        # --- END SECURITY LOGIC ---
+            if not allowed:
+                self.logger.warning(f"SECURITY: {src_ip} -> {dst_ip} : {reason}")
+                return # DROP PACKET
+            else:
+                self.logger.info(f"TRAFFIC: {src_ip} -> {dst_ip} : {reason}")
 
-        # Standard L2 Switching Logic (Learning Switch)
+        # L2 Switching standard
         out_port = ofproto.OFPP_FLOOD
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
 
         actions = [parser.OFPActionOutput(out_port)]
 
-        # Install Flow agar paket selanjutnya tidak perlu ke Controller
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
-            # Verify IP match for flow installation if needed, but simple mac match is okay 
-            # as long as the first packet passed the IP check above.
             if msg.buffer_id != ofproto.OFP_NO_BUFFER:
                 self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                 return

@@ -3,7 +3,7 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ethernet, ether_types, ipv4
+from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp
 
 class MedicalSimpleController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -76,7 +76,7 @@ class MedicalSimpleController(app_manager.RyuApp):
         if ip_addr in self.zones['DOSEN']:     return 'DOSEN'
         return 'UNKNOWN'
 
-    def check_security(self, src_ip, dst_ip):
+    def check_security(self, src_ip, dst_ip, icmp_type=None):
         src_cat = self.get_zone_category(src_ip)
         dst_cat = self.get_zone_category(dst_ip)
 
@@ -86,11 +86,20 @@ class MedicalSimpleController(app_manager.RyuApp):
 
         # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
+            # KECUALIAN: Izinkan jika ini adalah Balasan Ping (Echo Reply - Type 0)
+            # Ini memungkinkan Secure untuk inisiatif ping ke Mahasiswa
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Return Traffic)"
+                
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman"
 
         # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
-            return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen"
+            # Sama seperti Rule 2, izinkan reply agar Dosen bisa ping Mahasiswa
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Return Traffic)"
+
+            return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen Pribadi"
 
         # RULE 4: Dosen -> Ujian (BLOCK)
         if src_cat == 'DOSEN' and dst_ip in self.zones['UJIAN']:
@@ -123,7 +132,14 @@ class MedicalSimpleController(app_manager.RyuApp):
             src_ip = ipv4_pkt.src
             dst_ip = ipv4_pkt.dst
             
-            allowed, reason = self.check_security(src_ip, dst_ip)
+            # Cek apakah paket ini ICMP (Protocol 1)
+            icmp_type = None
+            if ipv4_pkt.proto == 1: # 1 = ICMP
+                icmp_p = pkt.get_protocol(icmp.icmp)
+                if icmp_p:
+                    icmp_type = icmp_p.type
+
+            allowed, reason = self.check_security(src_ip, dst_ip, icmp_type)
             
             if not allowed:
                 self.logger.warning(f"{reason} | {src_ip} -> {dst_ip}")

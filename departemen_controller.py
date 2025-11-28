@@ -52,7 +52,7 @@ class DeptFirewall(app_manager.RyuApp):
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
-        
+
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
 
@@ -62,6 +62,9 @@ class DeptFirewall(app_manager.RyuApp):
 
         self.mac_to_port.setdefault(dpid, {})
         self.mac_to_port[dpid][src] = in_port
+
+        # DEBUG: Log semua packet yang masuk
+        self.logger.info(f"PACKET_IN: {src} -> {dst} on datapath {dpid}, port {in_port}")
 
         # --- LOGIKA FIREWALL BERDASARKAN ZONA SENSITIVITAS ---
         ip_pkt = pkt.get_protocol(ipv4.ipv4)

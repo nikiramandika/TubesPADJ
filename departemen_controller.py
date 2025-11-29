@@ -13,64 +13,64 @@ class MedicalSimpleController(app_manager.RyuApp):
         self.mac_to_port = {}
                 
         self.zones = {
-            # Mahasiswa: Semua IP Nirkabel dari Gedung G9 dan G10
+            # Mahasiswa: Semua IP Nirkabel (subnet ranges)
             'MAHASISWA': [
-                # G9 Lantai 1 Nirkabel: 192.168.1.0/22
-                '192.168.1.1', '192.168.1.2',
-                # G9 Lantai 2 Nirkabel: 192.168.5.0/24
-                '192.168.5.1', '192.168.5.2',
-                # G9 Lantai 3 Nirkabel: 192.168.6.0/22
-                '192.168.6.1', '192.168.6.2',
-                # G10 Lantai 1 Nirkabel: 192.168.20.0/26
-                '192.168.20.1', '192.168.20.2',
-                # G10 Lantai 2 Nirkabel: 192.168.20.64/25
-                '192.168.20.65', '192.168.20.66',
-                # G10 Lantai 3 Nirkabel: 192.168.20.192/26
-                '192.168.20.193', '192.168.20.194'
+                # G9 WiFi ranges
+                {'network': '192.168.1.0', 'mask': 16,   # 192.168.1.0/16 (192.168.1.1 - 192.168.4.254)
+                 'start': '192.168.1.1', 'end': '192.168.4.254'},
+                {'network': '192.168.5.0', 'mask': 16,   # 192.168.5.0/16
+                 'start': '192.168.5.1', 'end': '192.168.5.254'},
+                {'network': '192.168.6.0', 'mask': 16,   # 192.168.6.0/16 (192.168.6.1 - 192.168.9.254)
+                 'start': '192.168.6.1', 'end': '192.168.9.254'},
+                # G10 WiFi ranges
+                {'network': '192.168.20.0', 'mask': 16,  # 192.168.20.0/16
+                 'start': '192.168.20.1', 'end': '192.168.20.62'},
+                {'network': '192.168.20.64', 'mask': 16, # 192.168.20.64/16
+                 'start': '192.168.20.65', 'end': '192.168.20.190'},
+                {'network': '192.168.20.192', 'mask': 16, # 192.168.20.192/16
+                 'start': '192.168.20.193', 'end': '192.168.20.254'}
             ],
 
-            # Lab Komputer: Diperlakukan sama seperti Mahasiswa (Student Network)
+            # Lab Komputer: Student Network (subnet ranges)
             'LAB': [
-                # G9 Lantai 3 Kabel: 192.168.10.96/25
-                '192.168.10.97', '192.168.10.98', # Lab 1
-                '192.168.10.99', '192.168.10.100', # Lab 2
-                '192.168.10.101', '192.168.10.102'  # Lab 3
+                {'network': '192.168.10.96', 'mask': 16, # 192.168.10.96/16
+                 'start': '192.168.10.97', 'end': '192.168.10.126'},
             ],
 
-            # Secure: Keuangan, Admin, Pimpinan, Ujian
+            # Secure: Keuangan, Admin, Pimpinan, Ujian (subnet ranges)
             'SECURE': [
-                # G9 Lantai 2 Kabel: 192.168.10.32/26 (Keuangan)
-                '192.168.10.33', '192.168.10.34',
-                # G10 Lantai 1 Kabel: 192.168.21.0/28 (Admin)
-                '192.168.21.1', '192.168.21.2',
-                # G9 Lantai 2 Kabel: 192.168.10.32/26 (Pimpinan)
-                '192.168.10.35', '192.168.10.36',
-                # G9 Lantai 2 Kabel: 192.168.10.32/26 (Ujian)
-                '192.168.10.39', '192.168.10.40'
+                # G9 Secure ranges
+                {'network': '192.168.10.32', 'mask': 16, # Keuangan/Ujian 192.168.10.32/16
+                 'start': '192.168.10.33', 'end': '192.168.10.62'},
+                # G10 Secure ranges
+                {'network': '192.168.21.0', 'mask': 16,   # Admin 192.168.21.0/16
+                 'start': '192.168.21.1', 'end': '192.168.21.14'},
             ],
 
-            # Dosen: Semua IP Kabel Dosen dari Gedung G9 dan G10
+            # Dosen: Semua IP Kabel Dosen (subnet ranges)
             'DOSEN': [
-                # G9 Lantai 2 Kabel: 192.168.10.32/26
-                '192.168.10.37', '192.168.10.38',
-                # G10 Lantai 2 Kabel: 192.168.21.16/29
-                '192.168.21.17', '192.168.21.18',
-                # G10 Lantai 3 Kabel: 192.168.21.32/26
-                '192.168.21.33', '192.168.21.34'
+                # G9 Dosen
+                {'network': '192.168.10.32', 'mask': 16, # 192.168.10.32/16 (bagian dosen)
+                 'start': '192.168.10.37', 'end': '192.168.10.38'},
+                # G10 Dosen ranges
+                {'network': '192.168.21.16', 'mask': 16,  # 192.168.21.16/16
+                 'start': '192.168.21.17', 'end': '192.168.21.22'},
+                {'network': '192.168.21.32', 'mask': 16,  # 192.168.21.32/16
+                 'start': '192.168.21.33', 'end': '192.168.21.62'},
             ],
 
             # Sub-group khusus untuk rule spesifik
-            'KEUANGAN':  [
-                # G9 Lantai 2 Kabel: 192.168.10.32/26
-                '192.168.10.33', '192.168.10.34'
+            'KEUANGAN': [
+                {'network': '192.168.10.32', 'mask': 16,
+                 'start': '192.168.10.33', 'end': '192.168.10.34'}
             ],
-            'DEKAN':     [
-                # G9 Lantai 2 Kabel: 192.168.10.32/26
-                '192.168.10.35', '192.168.10.36'
+            'DEKAN': [
+                {'network': '192.168.10.32', 'mask': 16,
+                 'start': '192.168.10.35', 'end': '192.168.10.36'}
             ],
-            'UJIAN':     [
-                # G9 Lantai 2 Kabel: 192.168.10.32/26
-                '192.168.10.39', '192.168.10.40'
+            'UJIAN': [
+                {'network': '192.168.10.32', 'mask': 16,
+                 'start': '192.168.10.39', 'end': '192.168.10.40'}
             ]
         }
 
@@ -94,23 +94,77 @@ class MedicalSimpleController(app_manager.RyuApp):
         datapath.send_msg(mod)
 
     def get_zone_category(self, ip_addr):
-        # Cek IP masuk kategori mana
-        if ip_addr in self.zones['MAHASISWA']: return 'MAHASISWA'
-        if ip_addr in self.zones['LAB']:       return 'MAHASISWA'
-        if ip_addr in self.zones['SECURE']:    return 'SECURE'
-        if ip_addr in self.zones['DOSEN']:     return 'DOSEN'
+        # Helper function untuk convert IP to integer
+        def ip_to_int(ip):
+            try:
+                parts = ip.split('.')
+                return (int(parts[0]) << 24) + (int(parts[1]) << 16) + (int(parts[2]) << 8) + int(parts[3])
+            except:
+                return 0
+
+        # Helper function untuk cek IP dalam range
+        def ip_in_range(ip_addr, range_info):
+            if 'start' in range_info and 'end' in range_info:
+                ip_int = ip_to_int(ip_addr)
+                start_int = ip_to_int(range_info['start'])
+                end_int = ip_to_int(range_info['end'])
+                return start_int <= ip_int <= end_int
+            return False
+
+        def ip_in_zone(ip_addr, zone_name):
+            for range_info in self.zones[zone_name]:
+                if ip_in_range(ip_addr, range_info):
+                    return True
+            return False
+
+        # Cek IP masuk kategori mana dengan subnet ranges
+        for zone_name, zone_ranges in self.zones.items():
+            if zone_name in ['KEUANGAN', 'DEKAN', 'UJIAN']:
+                continue  # Skip sub-groups for initial category check
+            if zone_name == 'LAB':
+                # Lab diperlakukan sebagai Mahasiswa
+                for range_info in zone_ranges:
+                    if ip_in_range(ip_addr, range_info):
+                        return 'MAHASISWA'
+            else:
+                for range_info in zone_ranges:
+                    if ip_in_range(ip_addr, range_info):
+                        return zone_name
+
         return 'UNKNOWN'
 
     def check_security(self, src_ip, dst_ip, icmp_type=None):
         src_cat = self.get_zone_category(src_ip)
         dst_cat = self.get_zone_category(dst_ip)
 
+        # Helper functions
+        def ip_to_int(ip):
+            try:
+                parts = ip.split('.')
+                return (int(parts[0]) << 24) + (int(parts[1]) << 16) + (int(parts[2]) << 8) + int(parts[3])
+            except:
+                return 0
+
+        def ip_in_range(ip_addr, range_info):
+            if 'start' in range_info and 'end' in range_info:
+                ip_int = ip_to_int(ip_addr)
+                start_int = ip_to_int(range_info['start'])
+                end_int = ip_to_int(range_info['end'])
+                return start_int <= ip_int <= end_int
+            return False
+
+        def ip_in_zone(ip_addr, zone_name):
+            for range_info in self.zones[zone_name]:
+                if ip_in_range(ip_addr, range_info):
+                    return True
+            return False
+
         # RULE 1: Keuangan ke Dekan -> ALLOW (Izin Khusus Internal Secure)
-        if src_ip in self.zones['KEUANGAN'] and dst_ip in self.zones['DEKAN']:
+        if ip_in_zone(src_ip, 'KEUANGAN') and ip_in_zone(dst_ip, 'DEKAN'):
              return True, "ALLOW: Internal Report (Keuangan -> Dekan)", True
 
         # RULE 1a: Dekan bisa mengakses semua zona (Mahasiswa, Lab, Dosen) -> ALLOW
-        if src_ip in self.zones['DEKAN']:
+        if ip_in_zone(src_ip, 'DEKAN'):
             return True, "ALLOW: Dekan mengakses jaringan", True
 
         # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
@@ -128,7 +182,7 @@ class MedicalSimpleController(app_manager.RyuApp):
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen Pribadi", False
 
         # RULE 4: Dosen -> Ujian (BLOCK)
-        if src_cat == 'DOSEN' and dst_ip in self.zones['UJIAN']:
+        if src_cat == 'DOSEN' and ip_in_zone(dst_ip, 'UJIAN'):
             return False, "BLOCK: Dosen akses Server Ujian", False
 
         # RULE 5: Dosen -> Secure (BLOCK)

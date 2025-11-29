@@ -214,6 +214,13 @@ class GedungController(app_manager.RyuApp):
 
             return False, "BLOCK: AULA mencoba akses Dosen", False
 
+        # RULE 4: AULA -> Dosen (BLOCK)
+        if src_cat == 'AULA' and dst_cat == 'DEKAN':
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
+
+            return False, "BLOCK: AULA mencoba akses Dosen", False
+        
         # RULE 6: Dosen -> Secure (BLOCK)
         if src_cat == 'DOSEN' and dst_cat == 'SECURE':
             if icmp_type == icmp.ICMP_ECHO_REPLY:

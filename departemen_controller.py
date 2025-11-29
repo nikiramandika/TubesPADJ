@@ -4,6 +4,7 @@ from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp
+import time
 
 class GedungController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -11,6 +12,10 @@ class GedungController(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(GedungController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
+        # Track flows for logging purposes
+        self.installed_flows = {}  # {(src_ip, dst_ip): timestamp}
+        self.log_counter = {}      # {(src_ip, dst_ip): count}
+        self.last_log_time = {}    # {(src_ip, dst_ip): timestamp}
                 
         self.zones = {
             # Mahasiswa: Semua IP Nirkabel + Aula G10 (subnet ranges)
@@ -173,6 +178,7 @@ class GedungController(app_manager.RyuApp):
 
         # RULE 1a: Dekan bisa mengakses semua zona (Mahasiswa, Lab, Dosen) -> ALLOW
         if ip_in_zone(src_ip, 'DEKAN'):
+            # Install flow untuk efisiensi, tapi tetap log untuk visibility
             return True, format_log_message("ALLOW", "Administrative Access", "Dekan", dst_cat), True
 
         # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
@@ -277,14 +283,41 @@ class GedungController(app_manager.RyuApp):
                     icmp_type = icmp_p.type
 
             allowed, reason, should_install_flow = self.check_security(src_ip, dst_ip, icmp_type)
+            flow_key = (src_ip, dst_ip)
+            current_time = time.time()
 
             if not allowed:
                 self.logger.warning(f"{reason} | {src_ip} -> {dst_ip}")
                 return
             else:
-                # Hanya log untuk packet pertama atau yang tidak install flow
-                if should_install_flow or icmp_type != icmp.ICMP_ECHO_REPLY:
-                    self.logger.info(f"{reason} | {src_ip} -> {dst_ip}")
+                # Smart logging logic
+                should_log = False
+
+                if flow_key not in self.installed_flows:
+                    # First time seeing this flow
+                    should_log = True
+                    self.installed_flows[flow_key] = current_time
+                    self.log_counter[flow_key] = 1
+                elif icmp_type != icmp.ICMP_ECHO_REPLY:
+                    # Non-ICMP reply traffic
+                    should_log = True
+                    self.log_counter[flow_key] = self.log_counter.get(flow_key, 0) + 1
+                elif should_install_flow:
+                    # Flow being installed (first packet)
+                    should_log = True
+                    self.log_counter[flow_key] = 1
+                elif current_time - self.last_log_time.get(flow_key, 0) > 10:  # Log every 10 seconds
+                    # Periodic logging for long-running flows
+                    should_log = True
+                    self.log_counter[flow_key] = self.log_counter.get(flow_key, 0) + 1
+
+                if should_log:
+                    count = self.log_counter.get(flow_key, 1)
+                    if count > 1:
+                        self.logger.info(f"{reason} | {src_ip} -> {dst_ip} (packet #{count})")
+                    else:
+                        self.logger.info(f"{reason} | {src_ip} -> {dst_ip}")
+                    self.last_log_time[flow_key] = current_time
 
         out_port = ofproto.OFPP_FLOOD
         if dst in self.mac_to_port[dpid]:

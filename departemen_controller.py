@@ -46,21 +46,21 @@ class MedicalSimpleController(app_manager.RyuApp):
                 # G9 Lt2 Kabel (Dosen Gedung G9)
                 '192.168.10.35', '192.168.10.36',
                 # G10 Lt2 Nirkabel (Dosen)
-                '172.16.20.71', '172.16.20.72',
+                '192.16.20.71', '192.16.20.72',
                 # G10 Lt3 Nirkabel (Dosen)
-                '172.16.20.201', '172.16.20.202'
+                '192.16.20.201', '192.16.20.202'
             ],
 
             # Administrasi Gedung G10 - sesuai topology
             'ADMIN_G10': [
                 # G10 Lt1 Kabel (Administrasi)
-                '172.16.21.11', '172.16.21.12'
+                '192.16.21.11', '192.16.21.12'
             ],
 
             # Aula - sesuai topology
             'AULA': [
                 # G10 Lt2 Kabel (Aula)
-                '172.16.21.18', '172.16.21.19'
+                '192.16.21.18', '192.16.21.19'
             ],
 
             # Sub-group khusus untuk rule spesifik
@@ -102,53 +102,70 @@ class MedicalSimpleController(app_manager.RyuApp):
         src_cat = self.get_zone_category(src_ip)
         dst_cat = self.get_zone_category(dst_ip)
 
+        # Helper function to check if IP is in G9 building
+        def is_g9_building(ip):
+            return (ip.startswith('192.168.1.') or ip.startswith('192.168.2.') or
+                    ip.startswith('192.168.3.') or ip.startswith('192.168.4.') or
+                    ip.startswith('192.168.5.') or ip.startswith('192.168.6.') or
+                    ip.startswith('192.168.7.') or ip.startswith('192.168.8.') or
+                    ip.startswith('192.168.9.') or ip.startswith('192.168.10.'))
+
+        # Helper function to check if IP is in G10 building
+        def is_g10_building(ip):
+            return ip.startswith('192.16.20.') or ip.startswith('192.16.21.')
+
         # RULE 1: Keuangan ke Dekan -> ALLOW (Izin Khusus Internal Secure)
         if src_ip in self.zones['KEUANGAN'] and dst_ip in self.zones['DEKAN']:
              return True, "ALLOW: Internal Report (Keuangan -> Dekan)", True
 
-        # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
-        if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
+        # RULE 1a: G9 Internal Communication (same building) -> ALLOW
+        if (is_g9_building(src_ip) and is_g9_building(dst_ip)):
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (G9 Internal)", False
+            # Exception: Dosen -> Ujian masih di BLOCK
+            if not (src_cat == 'DOSEN' and dst_ip in self.zones['UJIAN']):
+                return True, "ALLOW: G9 Internal Communication", True
+
+        # RULE 1b: G10 Internal Communication (same building) -> ALLOW
+        if (is_g10_building(src_ip) and is_g10_building(dst_ip)):
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (G10 Internal)", False
+            return True, "ALLOW: G10 Internal Communication", True
+
+        # RULE 2: Cross-Building Admin Communication -> ALLOW
+        if ((src_cat == 'SECURE' and dst_cat == 'ADMIN_G10') or
+            (src_cat == 'ADMIN_G10' and dst_cat == 'SECURE')):
+            return True, "ALLOW: Cross-Building Admin Communication", True
+
+        # RULE 3: Mahasiswa/Lab -> Secure (BLOCK) - only for cross-building
+        if src_cat == 'MAHASISWA' and dst_cat == 'SECURE' and is_g9_building(src_ip) and is_g9_building(dst_ip):
             if icmp_type == icmp.ICMP_ECHO_REPLY:
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
-
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman", False
 
-        # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
-        if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
+        # RULE 4: Mahasiswa/Lab -> Dosen (BLOCK) - only for cross-building
+        if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN' and is_g9_building(src_ip) and is_g9_building(dst_ip):
             if icmp_type == icmp.ICMP_ECHO_REPLY:
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
-
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen Pribadi", False
 
-        # RULE 4: Mahasiswa/Lab -> Admin G10 (ALLOW)
-        if src_cat == 'MAHASISWA' and dst_cat == 'ADMIN_G10':
-            return True, "ALLOW: Mahasiswa akses Administrasi G10", True
-
-        # RULE 5: Mahasiswa/Lab -> Aula (ALLOW)
-        if src_cat == 'MAHASISWA' and dst_cat == 'AULA':
-            return True, "ALLOW: Mahasiswa akses Aula", True
-
-        # RULE 6: Dosen -> Ujian (BLOCK)
+        # RULE 5: Dosen -> Ujian (BLOCK) - spesifik rule tetap berlaku
         if src_cat == 'DOSEN' and dst_ip in self.zones['UJIAN']:
             return False, "BLOCK: Dosen akses Server Ujian", False
 
-        # RULE 7: Dosen -> Secure (BLOCK)
-        if src_cat == 'DOSEN' and dst_cat == 'SECURE':
+        # RULE 6: Mahasiswa/Lab → Admin G10 (ALLOW) - cross building
+        if src_cat == 'MAHASISWA' and dst_cat == 'ADMIN_G10':
+            return True, "ALLOW: Mahasiswa akses Administrasi G10", True
+
+        # RULE 7: Mahasiswa/Lab → Aula (ALLOW)
+        if src_cat == 'MAHASISWA' and dst_cat == 'AULA':
+            return True, "ALLOW: Mahasiswa akses Aula", True
+
+        # RULE 8: Dosen → Secure (BLOCK) - only if different buildings
+        if src_cat == 'DOSEN' and dst_cat == 'SECURE' and not (is_g9_building(src_ip) and is_g9_building(dst_ip)):
             if icmp_type == icmp.ICMP_ECHO_REPLY:
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
-
             return False, "BLOCK: Dosen akses Zona Aman", False
-
-        # RULE 8: Admin G10 -> Secure (ALLOW for administrative access)
-        if src_cat == 'ADMIN_G10' and dst_cat == 'SECURE':
-            return True, "ALLOW: Admin G10 akses Zona Aman (Administrative)", True
-
-        # RULE 9: Aula -> Secure (BLOCK)
-        if src_cat == 'AULA' and dst_cat == 'SECURE':
-            if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, "ALLOW: Ping Reply (Return Traffic)", False
-
-            return False, "BLOCK: Aula mencoba akses Zona Aman", False
 
         return True, "ALLOW: Akses Diizinkan", True
 

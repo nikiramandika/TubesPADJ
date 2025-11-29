@@ -178,14 +178,23 @@ class GedungController(app_manager.RyuApp):
         # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, format_log_message("ALLOW", "ICMP Echo Reply", dst_cat, src_cat), False
+                # Untuk reply, arah sebenarnya adalah dst->src
+                return True, format_log_message("ALLOW", "ICMP Echo Reply", src_cat, dst_cat), False
             return False, format_log_message("BLOCK", "Unauthorized Access", src_cat, dst_cat, "Security Zone"), False
 
         # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, format_log_message("ALLOW", "ICMP Echo Reply", dst_cat, src_cat), False
+                # Untuk reply, arah sebenarnya adalah dst->src
+                return True, format_log_message("ALLOW", "ICMP Echo Reply", src_cat, dst_cat), False
             return False, format_log_message("BLOCK", "Unauthorized Access", src_cat, dst_cat, "Faculty Network"), False
+
+        # RULE 3a: Mahasiswa -> Dekan via ICMP reply (ALLOW)
+        if src_cat == 'MAHASISWA' and ip_in_zone(dst_ip, 'DEKAN'):
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                # Ini reply dari Mahasiswa ke Dekan (setelah Dekan ping Mahasiswa)
+                return True, format_log_message("ALLOW", "ICMP Echo Reply", src_cat, "Dekan"), False
+            return False, format_log_message("BLOCK", "Unauthorized Access", src_cat, "Dekan", "Administrative Zone"), False
 
         # RULE 4: Dosen -> Ujian (BLOCK)
         if src_cat == 'DOSEN' and ip_in_zone(dst_ip, 'UJIAN'):
@@ -215,7 +224,8 @@ class GedungController(app_manager.RyuApp):
         if src_building == dst_building and src_building != 'UNKNOWN':
             if src_cat == 'MAHASISWA' and dst_cat in ['SECURE', 'DOSEN']:
                 if icmp_type == icmp.ICMP_ECHO_REPLY:
-                    return True, format_log_message("ALLOW", "ICMP Echo Reply", dst_cat, src_cat, f"inter-floor {src_building}"), False
+                    # Untuk reply, arah sebenarnya adalah dst->src
+                    return True, format_log_message("ALLOW", "ICMP Echo Reply", src_cat, dst_cat, f"inter-floor {src_building}"), False
                 return False, format_log_message("BLOCK", "Unauthorized Access", src_cat, dst_cat, f"inter-floor {src_building}"), False
             else:
                 return True, format_log_message("ALLOW", "Inter-floor Communication", src_cat, dst_cat, src_building), True
@@ -226,7 +236,8 @@ class GedungController(app_manager.RyuApp):
                 return True, format_log_message("ALLOW", "Inter-building Access", src_cat, dst_cat, f"{src_building}->{dst_building}"), True
             elif src_cat == 'MAHASISWA':
                 if icmp_type == icmp.ICMP_ECHO_REPLY:
-                    return True, format_log_message("ALLOW", "ICMP Echo Reply", dst_cat, src_cat, f"inter-building {src_building}->{dst_building}"), False
+                    # Untuk reply, arah sebenarnya adalah dst->src
+                    return True, format_log_message("ALLOW", "ICMP Echo Reply", src_cat, dst_cat, f"inter-building {src_building}->{dst_building}"), False
                 return False, format_log_message("BLOCK", "Inter-building Access", src_cat, dst_cat, f"{src_building}->{dst_building}"), False
 
         return True, format_log_message("ALLOW", "Default Access", src_cat, dst_cat), True
@@ -266,12 +277,14 @@ class GedungController(app_manager.RyuApp):
                     icmp_type = icmp_p.type
 
             allowed, reason, should_install_flow = self.check_security(src_ip, dst_ip, icmp_type)
-            
+
             if not allowed:
                 self.logger.warning(f"{reason} | {src_ip} -> {dst_ip}")
-                return 
+                return
             else:
-                self.logger.info(f"{reason} | {src_ip} -> {dst_ip}")
+                # Hanya log untuk packet pertama atau yang tidak install flow
+                if should_install_flow or icmp_type != icmp.ICMP_ECHO_REPLY:
+                    self.logger.info(f"{reason} | {src_ip} -> {dst_ip}")
 
         out_port = ofproto.OFPP_FLOOD
         if dst in self.mac_to_port[dpid]:

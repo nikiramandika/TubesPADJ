@@ -170,16 +170,10 @@ class GedungController(app_manager.RyuApp):
 
         # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
-            if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, "ALLOW: Akses Diizinkan", False
-
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman", False
 
         # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
-            if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, "ALLOW: Akses Diizinkan", False
-
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen", False
 
         # RULE 4: Dosen -> Ujian (BLOCK)
@@ -188,9 +182,6 @@ class GedungController(app_manager.RyuApp):
 
         # RULE 5: Dosen -> Secure (BLOCK)
         if src_cat == 'DOSEN' and dst_cat == 'SECURE':
-            if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, "ALLOW: Akses Diizinkan", False
-
             return False, "BLOCK: Dosen akses Zona Aman", False
 
         def get_building(ip_addr):

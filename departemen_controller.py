@@ -84,9 +84,7 @@ class MedicalSimpleController(app_manager.RyuApp):
 
         # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
-            # KECUALIAN: Izinkan jika ini adalah Balasan Ping (Echo Reply - Type 0)
             if icmp_type == icmp.ICMP_ECHO_REPLY:
-                # Install_Flow = False (PENTING: Agar request berikutnya tetap diblokir)
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
                 
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman", False
@@ -104,6 +102,9 @@ class MedicalSimpleController(app_manager.RyuApp):
         
         # RULE 5: Dosen -> Secure (BLOCK)
         if src_cat == 'DOSEN' and dst_cat == 'SECURE':
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
+         
             return False, "BLOCK: Dosen akses Zona Aman", False
 
         return True, "ALLOW: Akses Diizinkan", True

@@ -15,62 +15,62 @@ class MedicalSimpleController(app_manager.RyuApp):
         self.zones = {
             # Mahasiswa: Semua IP Nirkabel dari Gedung G9 dan G10
             'MAHASISWA': [
-                # G9 Lantai 1 Nirkabel: 172.16.9.0/25
-                '172.16.9.1', '172.16.9.2',
-                # G9 Lantai 2 Nirkabel: 172.16.10.0/25
-                '172.16.10.1', '172.16.10.2',
-                # G9 Lantai 3 Nirkabel: 172.16.11.0/25
-                '172.16.11.1', '172.16.11.2',
-                # G10 Lantai 1 Nirkabel: 172.16.20.0/25
+                # G9 Lantai 1 Nirkabel: 192.168.1.0/22
+                '192.168.1.1', '192.168.1.2',
+                # G9 Lantai 2 Nirkabel: 192.168.5.0/24
+                '192.168.5.1', '192.168.5.2',
+                # G9 Lantai 3 Nirkabel: 192.168.6.0/22
+                '192.168.6.1', '192.168.6.2',
+                # G10 Lantai 1 Nirkabel: 172.16.20.0/26
                 '172.16.20.1', '172.16.20.2',
-                # G10 Lantai 2 Nirkabel: 172.16.20.128/25
-                '172.16.20.129', '172.16.20.130',
-                # G10 Lantai 3 Nirkabel: 172.16.21.0/25
-                '172.16.21.1', '172.16.21.2'
+                # G10 Lantai 2 Nirkabel: 172.16.20.64/25
+                '172.16.20.65', '172.16.20.66',
+                # G10 Lantai 3 Nirkabel: 172.16.20.192/26
+                '172.16.20.193', '172.16.20.194'
             ],
 
             # Lab Komputer: Diperlakukan sama seperti Mahasiswa (Student Network)
             'LAB': [
-                # G9 Lantai 3 Kabel: 172.16.12.64/27
-                '172.16.12.65', '172.16.12.66', # Lab 1
-                '172.16.12.67', '172.16.12.68', # Lab 2
-                '172.16.12.69', '172.16.12.70'  # Lab 3
+                # G9 Lantai 3 Kabel: 192.168.10.96/25
+                '192.168.10.97', '192.168.10.98', # Lab 1
+                '192.168.10.99', '192.168.10.100', # Lab 2
+                '192.168.10.101', '192.168.10.102'  # Lab 3
             ],
 
             # Secure: Keuangan, Admin, Pimpinan, Ujian
             'SECURE': [
-                # G9 Lantai 2 Kabel: 172.16.12.32/27 (Keuangan)
-                '172.16.12.33', '172.16.12.34',
-                # G10 Lantai 1 Kabel: 172.16.21.128/27 (Admin)
-                '172.16.21.129', '172.16.21.130',
-                # G9 Lantai 2 Kabel: 172.16.12.32/27 (Pimpinan)
-                '172.16.12.35', '172.16.12.36',
-                # G9 Lantai 2 Kabel: 172.16.12.32/27 (Ujian)
-                '172.16.12.39', '172.16.12.40'
+                # G9 Lantai 2 Kabel: 192.168.10.32/26 (Keuangan)
+                '192.168.10.33', '192.168.10.34',
+                # G10 Lantai 1 Kabel: 172.16.21.0/28 (Admin)
+                '172.16.21.1', '172.16.21.2',
+                # G9 Lantai 2 Kabel: 192.168.10.32/26 (Pimpinan)
+                '192.168.10.35', '192.168.10.36',
+                # G9 Lantai 2 Kabel: 192.168.10.32/26 (Ujian)
+                '192.168.10.39', '192.168.10.40'
             ],
 
             # Dosen: Semua IP Kabel Dosen dari Gedung G9 dan G10
             'DOSEN': [
-                # G9 Lantai 2 Kabel: 172.16.12.32/27
-                '172.16.12.37', '172.16.12.38',
-                # G10 Lantai 2 Kabel: 172.16.21.160/28
-                '172.16.21.161', '172.16.21.162',
-                # G10 Lantai 3 Kabel: 172.16.21.176/28
-                '172.16.21.177', '172.16.21.178'
+                # G9 Lantai 2 Kabel: 192.168.10.32/26
+                '192.168.10.37', '192.168.10.38',
+                # G10 Lantai 2 Kabel: 172.16.21.16/29
+                '172.16.21.17', '172.16.21.18',
+                # G10 Lantai 3 Kabel: 172.16.21.32/26
+                '172.16.21.33', '172.16.21.34'
             ],
 
             # Sub-group khusus untuk rule spesifik
             'KEUANGAN':  [
-                # G9 Lantai 2 Kabel: 172.16.12.32/27
-                '172.16.12.33', '172.16.12.34'
+                # G9 Lantai 2 Kabel: 192.168.10.32/26
+                '192.168.10.33', '192.168.10.34'
             ],
             'DEKAN':     [
-                # G9 Lantai 2 Kabel: 172.16.12.32/27
-                '172.16.12.35', '172.16.12.36'
+                # G9 Lantai 2 Kabel: 192.168.10.32/26
+                '192.168.10.35', '192.168.10.36'
             ],
             'UJIAN':     [
-                # G9 Lantai 2 Kabel: 172.16.12.32/27
-                '172.16.12.39', '172.16.12.40'
+                # G9 Lantai 2 Kabel: 192.168.10.32/26
+                '192.168.10.39', '192.168.10.40'
             ]
         }
 
@@ -139,15 +139,16 @@ class MedicalSimpleController(app_manager.RyuApp):
             return False, "BLOCK: Dosen akses Zona Aman", False
 
         # RULE 6: Antar lantai yang sama di gedung yang sama - PERIKSA OKTET KE-3
-        # Gedung G9: 172.16.9.*, 172.16.10.*, 172.16.11.*, 172.16.12.*
+        # Gedung G9: 192.168.1.*, 192.168.5.*, 192.168.6.*, 192.168.10.*
         # Gedung G10: 172.16.20.*, 172.16.21.*
         def get_building(ip_addr):
             try:
                 octets = ip_addr.split('.')
-                if octets[0] == '172' and octets[1] == '16':
-                    if octets[2] in ['9', '10', '11', '12']:
+                if octets[0] == '192' and octets[1] == '168':
+                    if octets[2] in ['1', '5', '6', '10']:
                         return 'G9'
-                    elif octets[2] in ['20', '21']:
+                elif octets[0] == '172' and octets[1] == '16':
+                    if octets[2] in ['20', '21']:
                         return 'G10'
             except:
                 pass

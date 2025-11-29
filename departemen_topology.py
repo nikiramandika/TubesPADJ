@@ -4,7 +4,7 @@ from mininet.node import RemoteController
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 
-class MedicalSimpleTopo(Topo):
+class GedungTopo(Topo):
     def build(self):
         # CORE & DISTRIBUTION
         s_core = self.addSwitch('s1', dpid='0000000000000001')
@@ -168,7 +168,7 @@ class MedicalSimpleTopo(Topo):
         self.addLink(s_g10_lt3, h_dsn_10b_2)
 
 def run():
-    topo = MedicalSimpleTopo()
+    topo = GedungTopo()
     net = Mininet(topo=topo, controller=RemoteController, autoSetMacs=True)
     net.start()
     CLI(net)

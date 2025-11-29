@@ -5,11 +5,11 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp
 
-class MedicalSimpleController(app_manager.RyuApp):
+class GedungController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(MedicalSimpleController, self).__init__(*args, **kwargs)
+        super(GedungController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
                 
         self.zones = {
@@ -120,7 +120,7 @@ class MedicalSimpleController(app_manager.RyuApp):
         # Cek IP masuk kategori mana dengan subnet ranges
         for zone_name, zone_ranges in self.zones.items():
             if zone_name in ['KEUANGAN', 'DEKAN', 'UJIAN']:
-                continue  # Skip sub-groups for initial category check
+                continue  
             if zone_name == 'LAB':
                 # Lab diperlakukan sebagai Mahasiswa
                 for range_info in zone_ranges:
@@ -192,9 +192,6 @@ class MedicalSimpleController(app_manager.RyuApp):
 
             return False, "BLOCK: Dosen akses Zona Aman", False
 
-        # RULE 6: Antar lantai yang sama di gedung yang sama - PERIKSA OKTET KE-3
-        # Gedung G9: 192.168.1.*, 192.168.5.*, 192.168.6.*, 192.168.10.*
-        # Gedung G10: 192.168.20.*, 192.168.21.*
         def get_building(ip_addr):
             try:
                 octets = ip_addr.split('.')

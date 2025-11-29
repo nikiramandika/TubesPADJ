@@ -6,29 +6,31 @@ from mininet.log import setLogLevel
 
 class MedicalSimpleTopo(Topo):
     def build(self):
-        # CORE & DISTRIBUTION
+        # CORE SWITCH (Central Hub)
         s_core = self.addSwitch('s1', dpid='0000000000000001')
-        s_dist_g9 = self.addSwitch('s2', dpid='0000000000000002')
-        s_dist_g10 = self.addSwitch('s3', dpid='0000000000000003')
-        
-        self.addLink(s_core, s_dist_g9)
-        self.addLink(s_core, s_dist_g10)
+
+        # Building Switches - akan menghubungkan semua lantai dalam gedung
+        s_g9 = self.addSwitch('s2', dpid='0000000000000002')  # Gedung G9 main switch
+        s_g10 = self.addSwitch('s3', dpid='0000000000000003') # Gedung G10 main switch
+
+        self.addLink(s_core, s_g9)
+        self.addLink(s_core, s_g10)
 
         # ================= GEDUNG G9 =================
         
         # --- G9 Lantai 1 (Access Point Mahasiswa) ---
         s_g9_lt1 = self.addSwitch('s4')
-        self.addLink(s_dist_g9, s_g9_lt1)
+        self.addLink(s_g9, s_g9_lt1)
 
         # G9 Lt1 Nirkabel: 192.168.1.0/22 (subnet mask 255.255.252.0)
-        h_mhs_wifi_1 = self.addHost('mhs1', ip='192.168.1.10/22')
-        h_mhs_wifi_2 = self.addHost('mhs2', ip='192.168.1.11/22')
+        h_mhs_wifi_1 = self.addHost('mhs1', ip='192.168.1.10/22', defaultRoute='via 192.168.1.1')
+        h_mhs_wifi_2 = self.addHost('mhs2', ip='192.168.1.11/22', defaultRoute='via 192.168.1.1')
         self.addLink(s_g9_lt1, h_mhs_wifi_1)
         self.addLink(s_g9_lt1, h_mhs_wifi_2)
 
         # --- G9 Lantai 2 (Area Campuran) ---
         s_g9_lt2_agg = self.addSwitch('s5')
-        self.addLink(s_dist_g9, s_g9_lt2_agg)
+        self.addLink(s_g9, s_g9_lt2_agg)
 
         # Keuangan (G9 Lt1 Kabel: 192.168.10.0/27)
         s_adm_keu = self.addSwitch('s6')
@@ -41,8 +43,8 @@ class MedicalSimpleTopo(Topo):
         # Pimpinan (G9 Lt2 Kabel: 192.168.10.32/26)
         s_pimpinan = self.addSwitch('s7')
         self.addLink(s_g9_lt2_agg, s_pimpinan)
-        h_dekan = self.addHost('dekan', ip='192.168.10.33/26')
-        h_sekre = self.addHost('sekre', ip='192.168.10.34/26')
+        h_dekan = self.addHost('dekan', ip='192.168.10.33/26', defaultRoute='via 192.168.10.1')
+        h_sekre = self.addHost('sekre', ip='192.168.10.34/26', defaultRoute='via 192.168.10.1')
         self.addLink(s_pimpinan, h_dekan)
         self.addLink(s_pimpinan, h_sekre)
 
@@ -65,7 +67,7 @@ class MedicalSimpleTopo(Topo):
         # --- G9 Lantai 3 (Lab & AP Mahasiswa) ---
         # Switch Utama Lantai 3
         s_g9_lt3_main = self.addSwitch('s10')
-        self.addLink(s_dist_g9, s_g9_lt3_main)
+        self.addLink(s_g9, s_g9_lt3_main)
 
         # Lab 1 (G9 Lt3 Nirkabel: 192.168.6.0/22)
         s_lab1 = self.addSwitch('s11')
@@ -102,15 +104,15 @@ class MedicalSimpleTopo(Topo):
         
         # Administrasi G10 (G10 Lt1 Kabel: 192.16.21.0/28)
         s_g10_lt1 = self.addSwitch('s14')
-        self.addLink(s_dist_g10, s_g10_lt1)
-        h_adm_g10_1 = self.addHost('adm10a', ip='192.16.21.11/28')
-        h_adm_g10_2 = self.addHost('adm10b', ip='192.16.21.12/28')
+        self.addLink(s_g10, s_g10_lt1)
+        h_adm_g10_1 = self.addHost('adm10a', ip='192.16.21.11/28', defaultRoute='via 192.16.21.1')
+        h_adm_g10_2 = self.addHost('adm10b', ip='192.16.21.12/28', defaultRoute='via 192.16.21.1')
         self.addLink(s_g10_lt1, h_adm_g10_1)
         self.addLink(s_g10_lt1, h_adm_g10_2)
 
         # Dosen G10 Lt2 & Aula
         s_g10_lt2 = self.addSwitch('s15')
-        self.addLink(s_dist_g10, s_g10_lt2)
+        self.addLink(s_g10, s_g10_lt2)
         # Dosen (G10 Lt2 Nirkabel: 192.16.20.64/25)
         h_dsn_10a_1 = self.addHost('dsn10a1', ip='192.16.20.71/25')
         h_dsn_10a_2 = self.addHost('dsn10a2', ip='192.16.20.72/25')
@@ -124,7 +126,7 @@ class MedicalSimpleTopo(Topo):
 
         # Dosen G10 Lt3 (G10 Lt3 Nirkabel: 192.16.20.192/26)
         s_g10_lt3 = self.addSwitch('s16')
-        self.addLink(s_dist_g10, s_g10_lt3)
+        self.addLink(s_g10, s_g10_lt3)
         h_dsn_10b_1 = self.addHost('dsn10b1', ip='192.16.20.201/26')
         h_dsn_10b_2 = self.addHost('dsn10b2', ip='192.16.20.202/26')
         self.addLink(s_g10_lt3, h_dsn_10b_1)

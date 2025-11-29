@@ -274,22 +274,48 @@ class MedicalSimpleController(app_manager.RyuApp):
             def is_g10_building(ip):
                 return ip.startswith('192.16.20.') or ip.startswith('192.16.21.')
 
-            # Jika beda subnet tapi dalam gedung yang sama, lakukan routing
-            if (is_g9_building(src_ip) and is_g9_building(dst_ip)) or \
-               (is_g10_building(src_ip) and is_g10_building(dst_ip)):
+            # Helper function untuk menentukan subnet
+            def get_subnet_network(ip):
+                if ip.startswith('192.168.1.'): return '192.168.1.0/22'
+                if ip.startswith('192.168.2.'): return '192.168.2.0/24'
+                if ip.startswith('192.168.3.'): return '192.168.3.0/24'
+                if ip.startswith('192.168.5.'): return '192.168.5.0/24'
+                if ip.startswith('192.168.6.'): return '192.168.6.0/22'
+                if ip.startswith('192.168.10.'): return '192.168.10.0/24'
+                if ip.startswith('192.16.20.'): return '192.16.20.0/24'
+                if ip.startswith('192.16.21.'): return '192.16.21.0/24'
+                return None
 
-                # Untuk komunikasi antar subnet, kita perlu melakukan ARP resolution
-                # dan setup flows yang tepat
-                self.logger.info(f"Inter-subnet routing: {src_ip} -> {dst_ip}")
+            # Jika beda subnet tapi dalam gedung yang sama, lakukan routing
+            src_subnet = get_subnet_network(src_ip)
+            dst_subnet = get_subnet_network(dst_ip)
+
+            if (src_subnet != dst_subnet and
+                ((is_g9_building(src_ip) and is_g9_building(dst_ip)) or
+                 (is_g10_building(src_ip) and is_g10_building(dst_ip)))):
+
+                self.logger.info(f"Inter-subnet routing: {src_ip} ({src_subnet}) -> {dst_ip} ({dst_subnet})")
+
+                # Install flow untuk forward traffic ke destination
+                match_forward = parser.OFPMatch(
+                    eth_type=ether_types.ETH_TYPE_IP,
+                    ipv4_src=src_ip,
+                    ipv4_dst=dst_ip
+                )
 
                 # Install flow untuk return traffic
                 match_return = parser.OFPMatch(
                     eth_type=ether_types.ETH_TYPE_IP,
-                    ipv4_dst=src_ip,
-                    ipv4_src=dst_ip
+                    ipv4_src=dst_ip,
+                    ipv4_dst=src_ip
                 )
-                actions_return = [parser.OFPActionOutput(in_port)]
-                self.add_flow(datapath, 3, match_return, actions_return)
+
+                # Arahkan ke output port yang tepat (flooding untuk menemukan destination)
+                actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+
+                # Install flows dengan priority tinggi untuk routing
+                self.add_flow(datapath, 5, match_forward, actions)
+                self.add_flow(datapath, 5, match_return, actions)
 
         # --- LOGIKA FORWARDING ---
         out_port = ofproto.OFPP_FLOOD

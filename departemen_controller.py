@@ -13,27 +13,27 @@ class MedicalSimpleController(app_manager.RyuApp):
         super(MedicalSimpleController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
         
-        # Definisi zona dengan subnet CIDR
+        # Definisi zona dengan subnet CIDR (strict=False untuk mengizinkan host bits)
         self.zones = {
             # GEDUNG G9
-            'MAHASISWA_G9_LT1_WIRELESS': ipaddress.ip_network('192.168.1.0/22'),
-            'MAHASISWA_G9_LT1_KABEL': ipaddress.ip_network('192.168.10.0/27'),
+            'MAHASISWA_G9_LT1_WIRELESS': ipaddress.ip_network('192.168.0.0/22', strict=False),
+            'MAHASISWA_G9_LT1_KABEL': ipaddress.ip_network('192.168.10.0/27', strict=False),
             
-            'ADMIN_SECURE_G9_LT2_WIRELESS': ipaddress.ip_network('192.168.5.0/24'),
-            'ADMIN_SECURE_G9_LT2_KABEL': ipaddress.ip_network('192.168.10.32/26'),
+            'ADMIN_SECURE_G9_LT2_WIRELESS': ipaddress.ip_network('192.168.5.0/24', strict=False),
+            'ADMIN_SECURE_G9_LT2_KABEL': ipaddress.ip_network('192.168.10.32/26', strict=False),
             
-            'LAB_G9_LT3_WIRELESS': ipaddress.ip_network('192.168.6.0/22'),
-            'LAB_G9_LT3_KABEL': ipaddress.ip_network('192.168.10.96/25'),
+            'LAB_G9_LT3_WIRELESS': ipaddress.ip_network('192.168.4.0/22', strict=False),
+            'LAB_G9_LT3_KABEL': ipaddress.ip_network('192.168.10.96/25', strict=False),
             
             # GEDUNG G10
-            'ADMIN_G10_LT1_WIRELESS': ipaddress.ip_network('172.16.20.0/26'),
-            'ADMIN_G10_LT1_KABEL': ipaddress.ip_network('172.16.21.0/28'),
+            'ADMIN_G10_LT1_WIRELESS': ipaddress.ip_network('172.16.20.0/26', strict=False),
+            'ADMIN_G10_LT1_KABEL': ipaddress.ip_network('172.16.21.0/28', strict=False),
             
-            'DOSEN_G10_LT2_WIRELESS': ipaddress.ip_network('172.16.20.64/25'),
-            'DOSEN_G10_LT2_KABEL': ipaddress.ip_network('172.16.21.16/29'),
+            'DOSEN_G10_LT2_WIRELESS': ipaddress.ip_network('172.16.20.64/25', strict=False),
+            'DOSEN_G10_LT2_KABEL': ipaddress.ip_network('172.16.21.16/29', strict=False),
             
-            'DOSEN_G10_LT3_WIRELESS': ipaddress.ip_network('172.16.20.192/26'),
-            'DOSEN_G10_LT3_KABEL': ipaddress.ip_network('172.16.21.32/26'),
+            'DOSEN_G10_LT3_WIRELESS': ipaddress.ip_network('172.16.20.192/26', strict=False),
+            'DOSEN_G10_LT3_KABEL': ipaddress.ip_network('172.16.21.32/26', strict=False),
         }
         
         # Mapping IP ke kategori zona

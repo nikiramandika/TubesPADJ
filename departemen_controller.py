@@ -37,14 +37,21 @@ class GedungController(app_manager.RyuApp):
                  'start': '192.168.10.97', 'end': '192.168.10.126'},
             ],
 
-            # Secure: Administrasi(Keuangan), Admin, Pimpinan, Ujian (subnet ranges)
+            # Secure: Admin, Pimpinan, Keuangan (subnet ranges) - Ujian dipisah
             'SECURE': [
                 # G9 Secure ranges
-                {'network': '192.168.10.32', 'mask': 16, # Keuangan/Ujian 192.168.10.32/16
-                 'start': '192.168.10.33', 'end': '192.168.10.62'},
+                {'network': '192.168.10.32', 'mask': 16, # Admin/Keuangan 192.168.10.32/16
+                 'start': '192.168.10.33', 'end': '192.168.10.38'},
                 # G10 Secure ranges
                 {'network': '192.168.21.0', 'mask': 16,   # Administrasi 192.168.21.0/16
                  'start': '192.168.21.1', 'end': '192.168.21.14'},
+            ],
+
+            # Ujian: Dipisah dari Secure zone
+            'UJIAN': [
+                # G9 Ujian ranges - terpisah dari secure
+                {'network': '192.168.10.32', 'mask': 16, # Ujian 192.168.10.32/16
+                 'start': '192.168.10.39', 'end': '192.168.10.40'}
             ],
 
             # Dosen: Semua IP Kabel Dosen (subnet ranges)
@@ -59,18 +66,10 @@ class GedungController(app_manager.RyuApp):
                  'start': '192.168.21.33', 'end': '192.168.21.62'},
             ],
 
-            # Sub-group khusus untuk rule spesifik
-            'KEUANGAN': [
-                {'network': '192.168.10.32', 'mask': 16,
-                 'start': '192.168.10.33', 'end': '192.168.10.34'}
-            ],
+            # Sub-group khusus untuk rule spesifik - KEUANGAN dan UJIAN sudah dipindah ke atas
             'DEKAN': [
                 {'network': '192.168.10.32', 'mask': 16,
                  'start': '192.168.10.35', 'end': '192.168.10.36'}
-            ],
-            'UJIAN': [
-                {'network': '192.168.10.32', 'mask': 16,
-                 'start': '192.168.10.39', 'end': '192.168.10.40'}
             ]
         }
 
@@ -119,8 +118,8 @@ class GedungController(app_manager.RyuApp):
 
         # Cek IP masuk kategori mana dengan subnet ranges
         for zone_name, zone_ranges in self.zones.items():
-            if zone_name in ['KEUANGAN', 'DEKAN', 'UJIAN']:
-                continue  
+            if zone_name in ['DEKAN']:
+                continue
             if zone_name == 'LAB':
                 # Lab diperlakukan sebagai Mahasiswa
                 for range_info in zone_ranges:
@@ -159,42 +158,57 @@ class GedungController(app_manager.RyuApp):
                     return True
             return False
 
-        # RULE 1: Keuangan ke Dekan -> ALLOW (Izin Khusus Internal Secure)
-        if ip_in_zone(src_ip, 'KEUANGAN') and ip_in_zone(dst_ip, 'DEKAN'):
-             return True, "ALLOW: Internal Report (Keuangan -> Dekan)", True
+        # RULE 1: Keuangan (bagian dari SECURE) ke Dekan -> BLOCK (Keuangan tidak bisa akses Dekan)
+        if src_cat == 'SECURE' and ip_in_zone(dst_ip, 'DEKAN'):
+            # Cek apakah source IP adalah keuangan (192.168.10.33-192.168.10.34)
+            def ip_to_int(ip):
+                try:
+                    parts = ip.split('.')
+                    return (int(parts[0]) << 24) + (int(parts[1]) << 16) + (int(parts[2]) << 8) + int(parts[3])
+                except:
+                    return 0
 
-        # RULE 1a: Dekan bisa mengakses semua zona (Mahasiswa, Lab, Dosen) -> ALLOW
+            src_ip_int = ip_to_int(src_ip)
+            keuangan_start = ip_to_int('192.168.10.33')
+            keuangan_end = ip_to_int('192.168.10.34')
+
+            if keuangan_start <= src_ip_int <= keuangan_end:
+                if icmp_type == icmp.ICMP_ECHO_REPLY:
+                    return True, "ALLOW: Ping Reply (Return Traffic)", False
+                return False, "BLOCK: Keuangan mencoba akses Dekan", False
+
+        # RULE 1a: Dekan bisa mengakses semua zona (Mahasiswa, Lab, Dosen, Keuangan) -> ALLOW
         if ip_in_zone(src_ip, 'DEKAN'):
             return True, "ALLOW: Dekan mengakses jaringan", True
 
-        # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
+        # RULE 2: Mahasiswa/Lab -> Ujian (BLOCK)
+        if src_cat == 'MAHASISWA' and dst_cat == 'UJIAN':
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
+            return False, "BLOCK: Mahasiswa/Lab mencoba akses Ujian", False
+
+        # RULE 3: Mahasiswa/Lab -> Secure (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
 
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman", False
 
-        # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
+        # RULE 4: Mahasiswa/Lab -> Dosen (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
 
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen", False
 
-        # RULE 4: Dosen -> Ujian (BLOCK)
-        if src_cat == 'DOSEN' and ip_in_zone(dst_ip, 'UJIAN'):
-            return False, "BLOCK: Dosen mencoba akses Server Ujian", False
-
-        # RULE 5: Dosen -> Secure (BLOCK)
+        # RULE 6: Dosen -> Secure (BLOCK)
         if src_cat == 'DOSEN' and dst_cat == 'SECURE':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
 
             return False, "BLOCK: Dosen mencoba akses Zona Aman", False
         
-        if ip_in_zone(src_ip, 'DEKAN') and ip_in_zone(dst_ip, 'KEUANGAN'):
-            return True, "ALLOW: Dekan mengakses jaringan Keuangan", True
-
+        
         def get_building(ip_addr):
             try:
                 octets = ip_addr.split('.')
@@ -211,18 +225,18 @@ class GedungController(app_manager.RyuApp):
         src_building = get_building(src_ip)
         dst_building = get_building(dst_ip)
 
-        # RULE 6a: Antar lantai di gedung yang sama - ALLOW untuk semua kategori kecuali mahasiswa ke secure/dosen
+        # RULE 8a: Antar lantai di gedung yang sama - ALLOW untuk semua kategori kecuali mahasiswa ke secure/dosen/ujian
         if src_building == dst_building and src_building != 'UNKNOWN':
-            if src_cat == 'MAHASISWA' and dst_cat in ['SECURE', 'DOSEN']:
+            if src_cat == 'MAHASISWA' and dst_cat in ['SECURE', 'DOSEN', 'UJIAN']:
                 if icmp_type == icmp.ICMP_ECHO_REPLY:
                     return True, "ALLOW: Ping Reply (Return Traffic)", False
                 return False, f"BLOCK: Mahasiswa lantai lain akses {dst_cat} di {src_building}", False
             else:
                 return True, f"ALLOW: Komunikasi antar lantai di {src_building}", True
 
-        # RULE 7: Antar gedung (G9 <-> G10) - ALLOW untuk Dosen dan Secure, BLOCK untuk Mahasiswa
+        # RULE 9: Antar gedung (G9 <-> G10) - ALLOW untuk Dosen, Secure, dan Ujian, BLOCK untuk Mahasiswa
         if src_building != dst_building and src_building != 'UNKNOWN' and dst_building != 'UNKNOWN':
-            if src_cat in ['DOSEN', 'SECURE']:
+            if src_cat in ['DOSEN', 'SECURE', 'UJIAN']:
                 return True, f"ALLOW: {src_cat} akses antar gedung", True
             elif src_cat == 'MAHASISWA':
                 if icmp_type == icmp.ICMP_ECHO_REPLY:

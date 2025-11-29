@@ -23,8 +23,8 @@ class MedicalSimpleTopo(Topo):
         self.addLink(s_g9, s_g9_lt1)
 
         # G9 Lt1 Nirkabel: 192.168.1.0/22 (subnet mask 255.255.252.0)
-        h_mhs_wifi_1 = self.addHost('mhs1', ip='192.168.1.10/22', defaultRoute='via 192.168.1.1')
-        h_mhs_wifi_2 = self.addHost('mhs2', ip='192.168.1.11/22', defaultRoute='via 192.168.1.1')
+        h_mhs_wifi_1 = self.addHost('mhs1', ip='192.168.1.10/22', defaultRoute='via 192.168.1.1', mac='00:00:00:00:01:01')
+        h_mhs_wifi_2 = self.addHost('mhs2', ip='192.168.1.11/22', defaultRoute='via 192.168.1.1', mac='00:00:00:00:01:02')
         self.addLink(s_g9_lt1, h_mhs_wifi_1)
         self.addLink(s_g9_lt1, h_mhs_wifi_2)
 
@@ -43,8 +43,8 @@ class MedicalSimpleTopo(Topo):
         # Pimpinan (G9 Lt2 Kabel: 192.168.10.32/26)
         s_pimpinan = self.addSwitch('s7')
         self.addLink(s_g9_lt2_agg, s_pimpinan)
-        h_dekan = self.addHost('dekan', ip='192.168.10.33/26', defaultRoute='via 192.168.10.1')
-        h_sekre = self.addHost('sekre', ip='192.168.10.34/26', defaultRoute='via 192.168.10.1')
+        h_dekan = self.addHost('dekan', ip='192.168.10.33/26', defaultRoute='via 192.168.10.1', mac='00:00:00:00:0A:01')
+        h_sekre = self.addHost('sekre', ip='192.168.10.34/26', defaultRoute='via 192.168.10.1', mac='00:00:00:00:0A:02')
         self.addLink(s_pimpinan, h_dekan)
         self.addLink(s_pimpinan, h_sekre)
 
@@ -72,8 +72,8 @@ class MedicalSimpleTopo(Topo):
         # Lab 1 (G9 Lt3 Nirkabel: 192.168.6.0/22)
         s_lab1 = self.addSwitch('s11')
         self.addLink(s_g9_lt3_main, s_lab1)
-        h_lab1_a = self.addHost('lab1a', ip='192.168.1.50/22')
-        h_lab1_b = self.addHost('lab1b', ip='192.168.1.51/22')
+        h_lab1_a = self.addHost('lab1a', ip='192.168.1.50/22', mac='00:00:00:00:01:50')
+        h_lab1_b = self.addHost('lab1b', ip='192.168.1.51/22', mac='00:00:00:00:01:51')
         self.addLink(s_lab1, h_lab1_a)
         self.addLink(s_lab1, h_lab1_b)
 
@@ -105,8 +105,8 @@ class MedicalSimpleTopo(Topo):
         # Administrasi G10 (G10 Lt1 Kabel: 192.16.21.0/28)
         s_g10_lt1 = self.addSwitch('s14')
         self.addLink(s_g10, s_g10_lt1)
-        h_adm_g10_1 = self.addHost('adm10a', ip='192.16.21.11/28', defaultRoute='via 192.16.21.1')
-        h_adm_g10_2 = self.addHost('adm10b', ip='192.16.21.12/28', defaultRoute='via 192.16.21.1')
+        h_adm_g10_1 = self.addHost('adm10a', ip='192.16.21.11/28', defaultRoute='via 192.16.21.1', mac='00:00:00:00:15:01')
+        h_adm_g10_2 = self.addHost('adm10b', ip='192.16.21.12/28', defaultRoute='via 192.16.21.1', mac='00:00:00:00:15:02')
         self.addLink(s_g10_lt1, h_adm_g10_1)
         self.addLink(s_g10_lt1, h_adm_g10_2)
 

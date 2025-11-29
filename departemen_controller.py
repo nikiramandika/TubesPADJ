@@ -3,7 +3,7 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp
+from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp, arp
 
 class MedicalSimpleController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -11,29 +11,26 @@ class MedicalSimpleController(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(MedicalSimpleController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
+        self.arp_table = {}  # IP to MAC mapping
+        self.ip_to_mac = {}   # Additional IP to MAC mapping
 
-        # Routing table untuk inter-subnet communication
-        self.routing_table = {
-            # G9 Building (192.168.x.x network)
-            '192.168.1.0/22': '192.168.1.1',  # G9 Lt1 Nirkabel gateway
-            '192.168.2.0/24': '192.168.2.1',  # G9 Lt2 Nirkabel gateway
-            '192.168.3.0/24': '192.168.3.1',  # G9 Lt3 Nirkabel gateway
-            '192.168.4.0/24': '192.168.4.1',  # G9 Lt3 Nirkabel gateway
-            '192.168.5.0/24': '192.168.5.1',  # G9 Lt2 Nirkabel gateway
-            '192.168.6.0/22': '192.168.6.1',  # G9 Lt3 Nirkabel gateway
-            '192.168.7.0/24': '192.168.7.1',  # G9 Lt3 Nirkabel gateway
-            '192.168.8.0/24': '192.168.8.1',  # G9 Lt3 Nirkabel gateway
-            '192.168.9.0/24': '192.168.9.1',  # G9 Lt3 Nirkabel gateway
-            '192.168.10.0/25': '192.168.10.1', # G9 Kabel networks gateway
+        # Pre-populate ARP table dengan known MAC addresses
+        self.arp_table = {
+            # G9 Building
+            '192.168.1.10': '00:00:00:00:01:01',  # mhs1
+            '192.168.1.11': '00:00:00:00:01:02',  # mhs2
+            '192.168.1.50': '00:00:00:00:01:50',  # lab1a
+            '192.168.1.51': '00:00:00:00:01:51',  # lab1b
+            '192.168.10.33': '00:00:00:00:0A:01',  # dekan
+            '192.168.10.34': '00:00:00:00:0A:02',  # sekre
 
-            # G10 Building (192.16.x.x network)
-            '192.16.20.0/26': '192.16.20.1',   # G10 Lt1 Nirkabel gateway
-            '192.16.20.64/25': '192.16.20.65', # G10 Lt2 Nirkabel gateway
-            '192.16.20.192/26': '192.16.20.193', # G10 Lt3 Nirkabel gateway
-            '192.16.21.0/28': '192.16.21.1',   # G10 Lt1 Kabel gateway
-            '192.16.21.16/29': '192.16.21.17', # G10 Lt2 Kabel gateway
-            '192.16.21.32/26': '192.16.21.33'  # G10 Lt3 Kabel gateway
+            # G10 Building
+            '192.16.21.11': '00:00:00:00:15:01',  # adm10a
+            '192.16.21.12': '00:00:00:00:15:02',  # adm10b
         }
+
+        # Copy ke ip_to_mac untuk routing
+        self.ip_to_mac = self.arp_table.copy()
                 
         self.zones = {
             # Mahasiswa: Gedung G9 Nirkabel (Lt1, Lt2, Lt3) - sesuai topology
@@ -120,6 +117,100 @@ class MedicalSimpleController(app_manager.RyuApp):
         if ip_addr in self.zones['ADMIN_G10']: return 'ADMIN_G10'
         if ip_addr in self.zones['AULA']:      return 'AULA'
         return 'UNKNOWN'
+
+    def handle_arp(self, datapath, in_port, eth_pkt, arp_pkt):
+        """Handle ARP packets for inter-subnet communication"""
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        # Learn IP to MAC mapping
+        self.arp_table[arp_pkt.src_ip] = arp_pkt.src_mac
+        self.ip_to_mac[arp_pkt.src_ip] = arp_pkt.src_mac
+
+        # Update MAC to port mapping
+        self.mac_to_port.setdefault(datapath.id, {})
+        self.mac_to_port[datapath.id][arp_pkt.src_mac] = in_port
+
+        if arp_pkt.opcode == arp.ARP_REQUEST:
+            # Handle ARP request
+            self.logger.info(f"🔍 ARP Request: {arp_pkt.src_ip} ({arp_pkt.src_mac}) asking for {arp_pkt.dst_ip}")
+            self.logger.info(f"📋 Current ARP table: {self.arp_table}")
+
+            # Check if we know the target MAC
+            if arp_pkt.dst_ip in self.arp_table:
+                # Send ARP reply
+                target_mac = self.arp_table[arp_pkt.dst_ip]
+                self.logger.info(f"Sending ARP Reply: {arp_pkt.dst_ip} is at {target_mac}")
+
+                # Create ARP reply packet
+                ether = ethernet.ethernet(
+                    dst=eth_pkt.src,
+                    src=target_mac,
+                    ethertype=ether_types.ETH_TYPE_ARP
+                )
+
+                arp_reply = arp.arp(
+                    opcode=arp.ARP_REPLY,
+                    src_mac=target_mac,
+                    src_ip=arp_pkt.dst_ip,
+                    dst_mac=arp_pkt.src_mac,
+                    dst_ip=arp_pkt.src_ip
+                )
+
+                p = packet.Packet()
+                p.add_protocol(ether)
+                p.add_protocol(arp_reply)
+                p.serialize()
+
+                # Send ARP reply
+                actions = [parser.OFPActionOutput(in_port)]
+                out = parser.OFPPacketOut(
+                    datapath=datapath,
+                    buffer_id=ofproto.OFP_NO_BUFFER,
+                    in_port=ofproto.OFPP_CONTROLLER,
+                    actions=actions,
+                    data=p.data
+                )
+                datapath.send_msg(out)
+
+            else:
+                # Flood ARP request if we don't know the target
+                self.logger.info(f"Flooding ARP Request for {arp_pkt.dst_ip}")
+                actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+                out = parser.OFPPacketOut(
+                    datapath=datapath,
+                    buffer_id=ofproto.OFP_NO_BUFFER,
+                    in_port=in_port,
+                    actions=actions,
+                    data=eth_pkt.data
+                )
+                datapath.send_msg(out)
+
+        elif arp_pkt.opcode == arp.ARP_REPLY:
+            # Handle ARP reply
+            self.logger.info(f"ARP Reply: {arp_pkt.src_ip} is at {arp_pkt.src_mac}")
+            # Learn from ARP reply
+            self.arp_table[arp_pkt.src_ip] = arp_pkt.src_mac
+            self.ip_to_mac[arp_pkt.src_ip] = arp_pkt.src_mac
+
+            # Install flow for this IP-to-MAC mapping
+            match = parser.OFPMatch(
+                eth_type=ether_types.ETH_TYPE_ARP,
+                arp_tpa=arp_pkt.src_ip
+            )
+            actions = [parser.OFPActionOutput(in_port)]
+            self.add_flow(datapath, 2, match, actions)
+
+            # Flood ARP reply to other ports
+            actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+            out = parser.OFPPacketOut(
+                datapath=datapath,
+                buffer_id=ofproto.OFP_NO_BUFFER,
+                in_port=in_port,
+                actions=actions,
+                data=eth_pkt.data
+            )
+            datapath.send_msg(out)
 
     def check_security(self, src_ip, dst_ip, icmp_type=None):
         src_cat = self.get_zone_category(src_ip)
@@ -233,6 +324,13 @@ class MedicalSimpleController(app_manager.RyuApp):
         self.mac_to_port.setdefault(dpid, {})
         self.mac_to_port[dpid][src] = in_port
 
+        # Handle ARP packets
+        if eth.ethertype == ether_types.ETH_TYPE_ARP:
+            arp_pkt = pkt.get_protocol(arp.arp)
+            if arp_pkt:
+                self.handle_arp(datapath, in_port, eth, arp_pkt)
+                return
+
         # Variabel kontrol flow
         should_install_flow = True
 
@@ -296,26 +394,32 @@ class MedicalSimpleController(app_manager.RyuApp):
 
                 self.logger.info(f"Inter-subnet routing: {src_ip} ({src_subnet}) -> {dst_ip} ({dst_subnet})")
 
-                # Install flow untuk forward traffic ke destination
-                match_forward = parser.OFPMatch(
-                    eth_type=ether_types.ETH_TYPE_IP,
-                    ipv4_src=src_ip,
-                    ipv4_dst=dst_ip
-                )
+                # Learn IP to MAC mapping for routing
+                if dst_ip in self.ip_to_mac:
+                    dst_mac = self.ip_to_mac[dst_ip]
+                    self.logger.info(f"Known destination MAC for {dst_ip}: {dst_mac}")
 
-                # Install flow untuk return traffic
-                match_return = parser.OFPMatch(
-                    eth_type=ether_types.ETH_TYPE_IP,
-                    ipv4_src=dst_ip,
-                    ipv4_dst=src_ip
-                )
-
-                # Arahkan ke output port yang tepat (flooding untuk menemukan destination)
-                actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
-
-                # Install flows dengan priority tinggi untuk routing
-                self.add_flow(datapath, 5, match_forward, actions)
-                self.add_flow(datapath, 5, match_return, actions)
+                    # Install specific flow for this IP pair
+                    match_specific = parser.OFPMatch(
+                        eth_type=ether_types.ETH_TYPE_IP,
+                        eth_dst=dst_mac,
+                        ipv4_src=src_ip,
+                        ipv4_dst=dst_ip,
+                        in_port=in_port
+                    )
+                    actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+                    self.add_flow(datapath, 10, match_specific, actions)
+                else:
+                    # Flood to learn MAC address
+                    self.logger.info(f"Unknown destination MAC for {dst_ip}, flooding...")
+                    match_flood = parser.OFPMatch(
+                        eth_type=ether_types.ETH_TYPE_IP,
+                        ipv4_src=src_ip,
+                        ipv4_dst=dst_ip,
+                        in_port=in_port
+                    )
+                    actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+                    self.add_flow(datapath, 5, match_flood, actions)
 
         # --- LOGIKA FORWARDING ---
         out_port = ofproto.OFPP_FLOOD

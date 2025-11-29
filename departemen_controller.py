@@ -160,22 +160,9 @@ class GedungController(app_manager.RyuApp):
 
         # RULE 1: Keuangan (bagian dari SECURE) ke Dekan -> BLOCK (Keuangan tidak bisa akses Dekan)
         if src_cat == 'SECURE' and ip_in_zone(dst_ip, 'DEKAN'):
-            # Cek apakah source IP adalah keuangan (192.168.10.33-192.168.10.34)
-            def ip_to_int(ip):
-                try:
-                    parts = ip.split('.')
-                    return (int(parts[0]) << 24) + (int(parts[1]) << 16) + (int(parts[2]) << 8) + int(parts[3])
-                except:
-                    return 0
-
-            src_ip_int = ip_to_int(src_ip)
-            keuangan_start = ip_to_int('192.168.10.33')
-            keuangan_end = ip_to_int('192.168.10.34')
-
-            if keuangan_start <= src_ip_int <= keuangan_end:
-                if icmp_type == icmp.ICMP_ECHO_REPLY:
-                    return True, "ALLOW: Ping Reply (Return Traffic)", False
-                return False, "BLOCK: Keuangan mencoba akses Dekan", False
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
+            return False, "BLOCK: Mencoba akses Dekan", False
 
         # RULE 1a: Dekan bisa mengakses semua zona (Mahasiswa, Lab, Dosen, Keuangan) -> ALLOW
         if ip_in_zone(src_ip, 'DEKAN'):

@@ -16,116 +16,151 @@ class MedicalSimpleTopo(Topo):
 
         # ================= GEDUNG G9 =================
         
-        # --- G9 Lantai 1 (Access Point Mahasiswa) ---
-        s_g9_lt1 = self.addSwitch('s4') 
-        self.addLink(s_dist_g9, s_g9_lt1)
+        # --- G9 LANTAI 1 (Wireless: 192.168.1.0/22, Kabel: 192.168.10.0/27) ---
+        sg9lt1m = self.addSwitch('s4')
+        self.addLink(s_dist_g9, sg9lt1m)
         
-        h_mhs_wifi_1 = self.addHost('mhs1', ip='10.0.0.101/24')
-        h_mhs_wifi_2 = self.addHost('mhs2', ip='10.0.0.102/24')
-        self.addLink(s_g9_lt1, h_mhs_wifi_1)
-        self.addLink(s_g9_lt1, h_mhs_wifi_2)
+        # Wireless G9 LT1
+        sg9lt1w = self.addSwitch('s4a')
+        self.addLink(sg9lt1m, sg9lt1w)
+        hmhsg9lt11 = self.addHost('mhsg9lt11', ip='192.168.1.1/22')
+        hmhsg9lt12 = self.addHost('mhsg9lt12', ip='192.168.1.2/22')
+        hmhsg9lt13 = self.addHost('mhsg9lt13', ip='192.168.2.1/22')
+        self.addLink(sg9lt1w, hmhsg9lt11)
+        self.addLink(sg9lt1w, hmhsg9lt12)
+        self.addLink(sg9lt1w, hmhsg9lt13)
+        
+        # Kabel G9 LT1
+        sg9lt1k = self.addSwitch('s4b')
+        self.addLink(sg9lt1m, sg9lt1k)
+        hmhsg9lt1k1 = self.addHost('mhsg9lt1k1', ip='192.168.10.1/27')
+        hmhsg9lt1k2 = self.addHost('mhsg9lt1k2', ip='192.168.10.2/27')
+        self.addLink(sg9lt1k, hmhsg9lt1k1)
+        self.addLink(sg9lt1k, hmhsg9lt1k2)
 
-        # --- G9 Lantai 2 (Area Campuran) ---
-        s_g9_lt2_agg = self.addSwitch('s5')
-        self.addLink(s_dist_g9, s_g9_lt2_agg)
+        # --- G9 LANTAI 2 (Wireless: 192.168.5.0/24, Kabel: 192.168.10.32/26) ---
+        sg9lt2m = self.addSwitch('s5')
+        self.addLink(s_dist_g9, sg9lt2m)
+        
+        # Wireless G9 LT2 - Admin/Secure
+        sg9lt2w = self.addSwitch('s5a')
+        self.addLink(sg9lt2m, sg9lt2w)
+        hadmg9lt2w1 = self.addHost('admg9lt2w1', ip='192.168.5.1/24')
+        hadmg9lt2w2 = self.addHost('admg9lt2w2', ip='192.168.5.2/24')
+        hadmg9lt2w3 = self.addHost('admg9lt2w3', ip='192.168.5.3/24')
+        self.addLink(sg9lt2w, hadmg9lt2w1)
+        self.addLink(sg9lt2w, hadmg9lt2w2)
+        self.addLink(sg9lt2w, hadmg9lt2w3)
+        
+        # Kabel G9 LT2 - Keuangan, Admin, Pimpinan, Ujian
+        sg9lt2k = self.addSwitch('s5b')
+        self.addLink(sg9lt2m, sg9lt2k)
+        hkeug91 = self.addHost('keug91', ip='192.168.10.33/26')
+        hkeug92 = self.addHost('keug92', ip='192.168.10.34/26')
+        hdekan = self.addHost('dekan', ip='192.168.10.35/26')
+        hsekre = self.addHost('sekre', ip='192.168.10.36/26')
+        hujiag91 = self.addHost('ujiag91', ip='192.168.10.37/26')
+        hujiag92 = self.addHost('ujiag92', ip='192.168.10.38/26')
+        self.addLink(sg9lt2k, hkeug91)
+        self.addLink(sg9lt2k, hkeug92)
+        self.addLink(sg9lt2k, hdekan)
+        self.addLink(sg9lt2k, hsekre)
+        self.addLink(sg9lt2k, hujiag91)
+        self.addLink(sg9lt2k, hujiag92)
 
-        # Keuangan
-        s_adm_keu = self.addSwitch('s6')
-        self.addLink(s_g9_lt2_agg, s_adm_keu)
-        h_keu_1 = self.addHost('keu1', ip='10.0.0.11/24')
-        h_keu_2 = self.addHost('keu2', ip='10.0.0.12/24')
-        self.addLink(s_adm_keu, h_keu_1)
-        self.addLink(s_adm_keu, h_keu_2)
-
-        # Pimpinan
-        s_pimpinan = self.addSwitch('s7')
-        self.addLink(s_g9_lt2_agg, s_pimpinan)
-        h_dekan = self.addHost('dekan', ip='10.0.0.21/24')
-        h_sekre = self.addHost('sekre', ip='10.0.0.22/24')
-        self.addLink(s_pimpinan, h_dekan)
-        self.addLink(s_pimpinan, h_sekre)
-
-        # Dosen Gedung G9
-        s_dosen_g9 = self.addSwitch('s8')
-        self.addLink(s_g9_lt2_agg, s_dosen_g9)
-        h_dsn_g9_1 = self.addHost('dsn9a', ip='10.0.0.31/24')
-        h_dsn_g9_2 = self.addHost('dsn9b', ip='10.0.0.32/24')
-        self.addLink(s_dosen_g9, h_dsn_g9_1)
-        self.addLink(s_dosen_g9, h_dsn_g9_2)
-
-        # R.Ujian
-        s_ujian = self.addSwitch('s9')
-        self.addLink(s_g9_lt2_agg, s_ujian)
-        h_ujian_1 = self.addHost('ujian1', ip='10.0.0.91/24')
-        h_ujian_2 = self.addHost('ujian2', ip='10.0.0.92/24')
-        self.addLink(s_ujian, h_ujian_1)
-        self.addLink(s_ujian, h_ujian_2)
-
-        # --- G9 Lantai 3 (Lab & AP Mahasiswa) ---
-        # Switch Utama Lantai 3
-        s_g9_lt3_main = self.addSwitch('s10')
-        self.addLink(s_dist_g9, s_g9_lt3_main)
-
-        # Lab 1 
-        s_lab1 = self.addSwitch('s11')
-        self.addLink(s_g9_lt3_main, s_lab1)
-        h_lab1_a = self.addHost('lab1a', ip='10.0.0.51/24')
-        h_lab1_b = self.addHost('lab1b', ip='10.0.0.52/24')
-        self.addLink(s_lab1, h_lab1_a)
-        self.addLink(s_lab1, h_lab1_b)
-
-        # Lab 2 
-        s_lab2 = self.addSwitch('s12')
-        self.addLink(s_g9_lt3_main, s_lab2)
-        h_lab2_a = self.addHost('lab2a', ip='10.0.0.53/24')
-        h_lab2_b = self.addHost('lab2b', ip='10.0.0.54/24')
-        self.addLink(s_lab2, h_lab2_a)
-        self.addLink(s_lab2, h_lab2_b)
-
-        # Lab 3 
-        s_lab3 = self.addSwitch('s13')
-        self.addLink(s_g9_lt3_main, s_lab3)
-        h_lab3_a = self.addHost('lab3a', ip='10.0.0.55/24')
-        h_lab3_b = self.addHost('lab3b', ip='10.0.0.56/24')
-        self.addLink(s_lab3, h_lab3_a)
-        self.addLink(s_lab3, h_lab3_b)
-
-        # Access Point Mahasiswa Lt3
-        h_mhs_3a = self.addHost('mhs3a', ip='10.0.0.103/24')
-        h_mhs_3b = self.addHost('mhs3b', ip='10.0.0.104/24')
-        self.addLink(s_g9_lt3_main, h_mhs_3a)
-        self.addLink(s_g9_lt3_main, h_mhs_3b)
-
+        # --- G9 LANTAI 3 (Wireless: 192.168.6.0/22, Kabel: 192.168.10.96/25) ---
+        sg9lt3m = self.addSwitch('s6')
+        self.addLink(s_dist_g9, sg9lt3m)
+        
+        # Wireless G9 LT3 - Lab & Mahasiswa
+        sg9lt3w = self.addSwitch('s6a')
+        self.addLink(sg9lt3m, sg9lt3w)
+        hlabg9lt3w1 = self.addHost('labg9lt3w1', ip='192.168.6.1/22')
+        hlabg9lt3w2 = self.addHost('labg9lt3w2', ip='192.168.6.2/22')
+        hlabg9lt3w3 = self.addHost('labg9lt3w3', ip='192.168.6.3/22')
+        hlabg9lt3w4 = self.addHost('labg9lt3w4', ip='192.168.7.1/22')
+        self.addLink(sg9lt3w, hlabg9lt3w1)
+        self.addLink(sg9lt3w, hlabg9lt3w2)
+        self.addLink(sg9lt3w, hlabg9lt3w3)
+        self.addLink(sg9lt3w, hlabg9lt3w4)
+        
+        # Kabel G9 LT3 - Lab
+        sg9lt3k = self.addSwitch('s6b')
+        self.addLink(sg9lt3m, sg9lt3k)
+        hlabg9lt3k1 = self.addHost('labg9lt3k1', ip='192.168.10.97/25')
+        hlabg9lt3k2 = self.addHost('labg9lt3k2', ip='192.168.10.98/25')
+        hlabg9lt3k3 = self.addHost('labg9lt3k3', ip='192.168.10.99/25')
+        hlabg9lt3k4 = self.addHost('labg9lt3k4', ip='192.168.10.100/25')
+        self.addLink(sg9lt3k, hlabg9lt3k1)
+        self.addLink(sg9lt3k, hlabg9lt3k2)
+        self.addLink(sg9lt3k, hlabg9lt3k3)
+        self.addLink(sg9lt3k, hlabg9lt3k4)
 
         # ================= GEDUNG G10 =================
         
-        # Administrasi G10
-        s_g10_lt1 = self.addSwitch('s14')
-        self.addLink(s_dist_g10, s_g10_lt1)
-        h_adm_g10_1 = self.addHost('adm10a', ip='10.0.0.13/24')
-        h_adm_g10_2 = self.addHost('adm10b', ip='10.0.0.14/24')
-        self.addLink(s_g10_lt1, h_adm_g10_1)
-        self.addLink(s_g10_lt1, h_adm_g10_2)
+        # --- G10 LANTAI 1 (Wireless: 172.16.20.0/26, Kabel: 172.16.21.0/28) ---
+        sg10lt1m = self.addSwitch('s7')
+        self.addLink(s_dist_g10, sg10lt1m)
+        
+        # Wireless G10 LT1 - Admin
+        sg10lt1w = self.addSwitch('s7a')
+        self.addLink(sg10lt1m, sg10lt1w)
+        hadmg10lt1w1 = self.addHost('admg10lt1w1', ip='172.16.20.1/26')
+        hadmg10lt1w2 = self.addHost('admg10lt1w2', ip='172.16.20.2/26')
+        self.addLink(sg10lt1w, hadmg10lt1w1)
+        self.addLink(sg10lt1w, hadmg10lt1w2)
+        
+        # Kabel G10 LT1 - Admin
+        sg10lt1k = self.addSwitch('s7b')
+        self.addLink(sg10lt1m, sg10lt1k)
+        hadmg10lt1k1 = self.addHost('admg10lt1k1', ip='172.16.21.1/28')
+        hadmg10lt1k2 = self.addHost('admg10lt1k2', ip='172.16.21.2/28')
+        self.addLink(sg10lt1k, hadmg10lt1k1)
+        self.addLink(sg10lt1k, hadmg10lt1k2)
 
-        # Dosen G10 Lt2 & Aula
-        s_g10_lt2 = self.addSwitch('s15')
-        self.addLink(s_dist_g10, s_g10_lt2)
-        h_dsn_10a_1 = self.addHost('dsn10a1', ip='10.0.0.33/24')
-        h_dsn_10a_2 = self.addHost('dsn10a2', ip='10.0.0.34/24')
-        h_aula_1 = self.addHost('aula1', ip='10.0.0.105/24')
-        h_aula_2 = self.addHost('aula2', ip='10.0.0.106/24')
-        self.addLink(s_g10_lt2, h_dsn_10a_1)
-        self.addLink(s_g10_lt2, h_dsn_10a_2)
-        self.addLink(s_g10_lt2, h_aula_1)
-        self.addLink(s_g10_lt2, h_aula_2)
+        # --- G10 LANTAI 2 (Wireless: 172.16.20.64/25, Kabel: 172.16.21.16/29) ---
+        sg10lt2m = self.addSwitch('s8')
+        self.addLink(s_dist_g10, sg10lt2m)
+        
+        # Wireless G10 LT2 - Dosen & Aula
+        sg10lt2w = self.addSwitch('s8a')
+        self.addLink(sg10lt2m, sg10lt2w)
+        hdsng10lt2w1 = self.addHost('dsng10lt2w1', ip='172.16.20.65/25')
+        hdsng10lt2w2 = self.addHost('dsng10lt2w2', ip='172.16.20.66/25')
+        haulaw1 = self.addHost('aulaw1', ip='172.16.20.67/25')
+        haulaw2 = self.addHost('aulaw2', ip='172.16.20.68/25')
+        self.addLink(sg10lt2w, hdsng10lt2w1)
+        self.addLink(sg10lt2w, hdsng10lt2w2)
+        self.addLink(sg10lt2w, haulaw1)
+        self.addLink(sg10lt2w, haulaw2)
+        
+        # Kabel G10 LT2 - Dosen
+        sg10lt2k = self.addSwitch('s8b')
+        self.addLink(sg10lt2m, sg10lt2k)
+        hdsng10lt2k1 = self.addHost('dsng10lt2k1', ip='172.16.21.17/29')
+        hdsng10lt2k2 = self.addHost('dsng10lt2k2', ip='172.16.21.18/29')
+        self.addLink(sg10lt2k, hdsng10lt2k1)
+        self.addLink(sg10lt2k, hdsng10lt2k2)
 
-        # Dosen G10 Lt3
-        s_g10_lt3 = self.addSwitch('s16')
-        self.addLink(s_dist_g10, s_g10_lt3)
-        h_dsn_10b_1 = self.addHost('dsn10b1', ip='10.0.0.35/24')
-        h_dsn_10b_2 = self.addHost('dsn10b2', ip='10.0.0.36/24')
-        self.addLink(s_g10_lt3, h_dsn_10b_1)
-        self.addLink(s_g10_lt3, h_dsn_10b_2)
+        # --- G10 LANTAI 3 (Wireless: 172.16.20.192/26, Kabel: 172.16.21.32/26) ---
+        sg10lt3m = self.addSwitch('s9')
+        self.addLink(s_dist_g10, sg10lt3m)
+        
+        # Wireless G10 LT3 - Dosen
+        sg10lt3w = self.addSwitch('s9a')
+        self.addLink(sg10lt3m, sg10lt3w)
+        hdsng10lt3w1 = self.addHost('dsng10lt3w1', ip='172.16.20.193/26')
+        hdsng10lt3w2 = self.addHost('dsng10lt3w2', ip='172.16.20.194/26')
+        self.addLink(sg10lt3w, hdsng10lt3w1)
+        self.addLink(sg10lt3w, hdsng10lt3w2)
+        
+        # Kabel G10 LT3 - Dosen
+        sg10lt3k = self.addSwitch('s9b')
+        self.addLink(sg10lt3m, sg10lt3k)
+        hdsng10lt3k1 = self.addHost('dsng10lt3k1', ip='172.16.21.33/26')
+        hdsng10lt3k2 = self.addHost('dsng10lt3k2', ip='172.16.21.34/26')
+        self.addLink(sg10lt3k, hdsng10lt3k1)
+        self.addLink(sg10lt3k, hdsng10lt3k2)
 
 def run():
     topo = MedicalSimpleTopo()

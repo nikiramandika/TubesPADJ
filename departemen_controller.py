@@ -30,6 +30,12 @@ class GedungController(app_manager.RyuApp):
                 {'network': '192.168.20.192', 'mask': 16, # 192.168.20.192/16
                  'start': '192.168.20.193', 'end': '192.168.20.254'}
             ],
+            
+            'AULA': [
+                # G10 Aula ranges
+                {'network': '192.168.21.16', 'mask': 16,  # 192.168.20.0/16
+                 'start': '192.168.21.19', 'end': '192.168.20.20'},
+            ],
 
             # Lab Komputer: Student Network (subnet ranges)
             'LAB': [
@@ -61,7 +67,7 @@ class GedungController(app_manager.RyuApp):
                  'start': '192.168.10.37', 'end': '192.168.10.38'},
                 # G10 Dosen ranges
                 {'network': '192.168.21.16', 'mask': 16,  # 192.168.21.16/16
-                 'start': '192.168.21.17', 'end': '192.168.21.22'},
+                 'start': '192.168.21.17', 'end': '192.168.21.18'},
                 {'network': '192.168.21.32', 'mask': 16,  # 192.168.21.32/16
                  'start': '192.168.21.33', 'end': '192.168.21.62'},
             ],
@@ -187,6 +193,26 @@ class GedungController(app_manager.RyuApp):
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
 
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen", False
+        
+        # RULE 5: AULA -> Ujian (BLOCK)
+        if src_cat == 'AULA' and dst_cat == 'UJIAN':
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
+            return False, "BLOCK: AULA mencoba akses Ujian", False
+
+        # RULE 3: AULA -> Secure (BLOCK)
+        if src_cat == 'AULA' and dst_cat == 'SECURE':
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
+
+            return False, "BLOCK: AULA mencoba akses Zona Aman", False
+
+        # RULE 4: AULA -> Dosen (BLOCK)
+        if src_cat == 'AULA' and dst_cat == 'DOSEN':
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
+
+            return False, "BLOCK: AULA mencoba akses Dosen", False
 
         # RULE 6: Dosen -> Secure (BLOCK)
         if src_cat == 'DOSEN' and dst_cat == 'SECURE':

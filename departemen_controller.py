@@ -11,6 +11,29 @@ class MedicalSimpleController(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(MedicalSimpleController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
+
+        # Routing table untuk inter-subnet communication
+        self.routing_table = {
+            # G9 Building (192.168.x.x network)
+            '192.168.1.0/22': '192.168.1.1',  # G9 Lt1 Nirkabel gateway
+            '192.168.2.0/24': '192.168.2.1',  # G9 Lt2 Nirkabel gateway
+            '192.168.3.0/24': '192.168.3.1',  # G9 Lt3 Nirkabel gateway
+            '192.168.4.0/24': '192.168.4.1',  # G9 Lt3 Nirkabel gateway
+            '192.168.5.0/24': '192.168.5.1',  # G9 Lt2 Nirkabel gateway
+            '192.168.6.0/22': '192.168.6.1',  # G9 Lt3 Nirkabel gateway
+            '192.168.7.0/24': '192.168.7.1',  # G9 Lt3 Nirkabel gateway
+            '192.168.8.0/24': '192.168.8.1',  # G9 Lt3 Nirkabel gateway
+            '192.168.9.0/24': '192.168.9.1',  # G9 Lt3 Nirkabel gateway
+            '192.168.10.0/25': '192.168.10.1', # G9 Kabel networks gateway
+
+            # G10 Building (192.16.x.x network)
+            '192.16.20.0/26': '192.16.20.1',   # G10 Lt1 Nirkabel gateway
+            '192.16.20.64/25': '192.16.20.65', # G10 Lt2 Nirkabel gateway
+            '192.16.20.192/26': '192.16.20.193', # G10 Lt3 Nirkabel gateway
+            '192.16.21.0/28': '192.16.21.1',   # G10 Lt1 Kabel gateway
+            '192.16.21.16/29': '192.16.21.17', # G10 Lt2 Kabel gateway
+            '192.16.21.32/26': '192.16.21.33'  # G10 Lt3 Kabel gateway
+        }
                 
         self.zones = {
             # Mahasiswa: Gedung G9 Nirkabel (Lt1, Lt2, Lt3) - sesuai topology
@@ -114,23 +137,45 @@ class MedicalSimpleController(app_manager.RyuApp):
         def is_g10_building(ip):
             return ip.startswith('192.16.20.') or ip.startswith('192.16.21.')
 
+        # Helper function to check if two IPs can communicate within same building
+        def can_communicate_within_building(src_ip, dst_ip):
+            """Check if two IPs can communicate based on building assignment"""
+            src_in_g9 = is_g9_building(src_ip)
+            dst_in_g9 = is_g9_building(dst_ip)
+            src_in_g10 = is_g10_building(src_ip)
+            dst_in_g10 = is_g10_building(dst_ip)
+
+            # Same building communication is allowed
+            if (src_in_g9 and dst_in_g9) or (src_in_g10 and dst_in_g10):
+                return True
+            return False
+
+        # Helper function to add routing flows for inter-subnet communication
+        def setup_routing(datapath, src_ip, dst_ip, in_port, out_port):
+            """Setup routing flows for inter-subnet communication"""
+            ofproto = datapath.ofproto
+            parser = datapath.ofproto_parser
+
+            # Create flow for return traffic
+            match = parser.OFPMatch(
+                eth_type=0x0800,  # IPv4
+                ipv4_dst=src_ip,
+                in_port=out_port
+            )
+            actions = [parser.OFPActionOutput(in_port)]
+            self.add_flow(datapath, 2, match, actions)
+
         # RULE 1: Keuangan ke Dekan -> ALLOW (Izin Khusus Internal Secure)
         if src_ip in self.zones['KEUANGAN'] and dst_ip in self.zones['DEKAN']:
              return True, "ALLOW: Internal Report (Keuangan -> Dekan)", True
 
-        # RULE 1a: G9 Internal Communication (same building) -> ALLOW
-        if (is_g9_building(src_ip) and is_g9_building(dst_ip)):
+        # RULE 1a: Internal Communication within same building -> ALLOW
+        if can_communicate_within_building(src_ip, dst_ip):
             if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, "ALLOW: Ping Reply (G9 Internal)", False
+                return True, "ALLOW: Ping Reply (Internal Building)", False
             # Exception: Dosen -> Ujian masih di BLOCK
             if not (src_cat == 'DOSEN' and dst_ip in self.zones['UJIAN']):
-                return True, "ALLOW: G9 Internal Communication", True
-
-        # RULE 1b: G10 Internal Communication (same building) -> ALLOW
-        if (is_g10_building(src_ip) and is_g10_building(dst_ip)):
-            if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, "ALLOW: Ping Reply (G10 Internal)", False
-            return True, "ALLOW: G10 Internal Communication", True
+                return True, "ALLOW: Internal Building Communication", True
 
         # RULE 2: Cross-Building Admin Communication -> ALLOW
         if ((src_cat == 'SECURE' and dst_cat == 'ADMIN_G10') or
@@ -196,7 +241,7 @@ class MedicalSimpleController(app_manager.RyuApp):
             ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
             src_ip = ipv4_pkt.src
             dst_ip = ipv4_pkt.dst
-            
+
             icmp_type = None
             if ipv4_pkt.proto == 1:
                 icmp_p = pkt.get_protocol(icmp.icmp)
@@ -204,13 +249,49 @@ class MedicalSimpleController(app_manager.RyuApp):
                     icmp_type = icmp_p.type
 
             allowed, reason, should_install_flow = self.check_security(src_ip, dst_ip, icmp_type)
-            
+
             if not allowed:
                 self.logger.warning(f"{reason} | {src_ip} -> {dst_ip}")
-                return 
+                return
             else:
                 self.logger.info(f"{reason} | {src_ip} -> {dst_ip}")
 
+        # --- LOGIKA ROUTING ---
+        # Cek apakah ini adalah traffic antar subnet dalam gedung yang sama
+        if eth.ethertype == ether_types.ETH_TYPE_IP:
+            ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+            src_ip = ipv4_pkt.src
+            dst_ip = ipv4_pkt.dst
+
+            # Helper function untuk menentukan gedung
+            def is_g9_building(ip):
+                return (ip.startswith('192.168.1.') or ip.startswith('192.168.2.') or
+                        ip.startswith('192.168.3.') or ip.startswith('192.168.4.') or
+                        ip.startswith('192.168.5.') or ip.startswith('192.168.6.') or
+                        ip.startswith('192.168.7.') or ip.startswith('192.168.8.') or
+                        ip.startswith('192.168.9.') or ip.startswith('192.168.10.'))
+
+            def is_g10_building(ip):
+                return ip.startswith('192.16.20.') or ip.startswith('192.16.21.')
+
+            # Jika beda subnet tapi dalam gedung yang sama, lakukan routing
+            if (is_g9_building(src_ip) and is_g9_building(dst_ip)) or \
+               (is_g10_building(src_ip) and is_g10_building(dst_ip)):
+
+                # Untuk komunikasi antar subnet, kita perlu melakukan ARP resolution
+                # dan setup flows yang tepat
+                self.logger.info(f"Inter-subnet routing: {src_ip} -> {dst_ip}")
+
+                # Install flow untuk return traffic
+                match_return = parser.OFPMatch(
+                    eth_type=ether_types.ETH_TYPE_IP,
+                    ipv4_dst=src_ip,
+                    ipv4_src=dst_ip
+                )
+                actions_return = [parser.OFPActionOutput(in_port)]
+                self.add_flow(datapath, 3, match_return, actions_return)
+
+        # --- LOGIKA FORWARDING ---
         out_port = ofproto.OFPP_FLOOD
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
@@ -219,7 +300,7 @@ class MedicalSimpleController(app_manager.RyuApp):
 
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src, eth_type=eth.ethertype)
-            
+
             if should_install_flow:
                 if msg.buffer_id != ofproto.OFP_NO_BUFFER:
                     self.add_flow(datapath, 1, match, actions, msg.buffer_id)
@@ -229,11 +310,11 @@ class MedicalSimpleController(app_manager.RyuApp):
             else:
                 data = None
                 if msg.buffer_id == ofproto.OFP_NO_BUFFER: data = msg.data
-                out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, 
+                out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
                                           in_port=in_port, actions=actions, data=data)
                 datapath.send_msg(out)
                 return
-        
+
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER: data = msg.data
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port, actions=actions, data=data)

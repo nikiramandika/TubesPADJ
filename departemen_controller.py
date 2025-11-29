@@ -172,35 +172,31 @@ class GedungController(app_manager.RyuApp):
                     return True
             return False
 
-        # RULE 1: Keuangan ke Dekan -> ALLOW (Izin Khusus Internal Secure)
+        # RULE 1: Keuangan -> Dekan (ICMP reply) -> ALLOW
         if ip_in_zone(src_ip, 'KEUANGAN') and ip_in_zone(dst_ip, 'DEKAN'):
-             return True, format_log_message("ALLOW", "Internal Report", "Keuangan", "Dekan"), True
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, format_log_message("ALLOW", "ICMP Echo Reply", "Keuangan", "Dekan"), False
+            return True, format_log_message("ALLOW", "Internal Report", "Keuangan", "Dekan"), True
 
-        # RULE 1a: Dekan bisa mengakses semua zona (Mahasiswa, Lab, Dosen) -> ALLOW
+        # RULE 1a: Dekan bisa mengakses semua zona -> ALLOW
         if ip_in_zone(src_ip, 'DEKAN'):
             # Install flow untuk efisiensi, tapi tetap log untuk visibility
             return True, format_log_message("ALLOW", "Administrative Access", "Dekan", dst_cat), True
 
-        # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
-        if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
+        # RULE 2: Secure -> Mahasiswa/Dosen (ICMP reply) -> ALLOW
+        if src_cat == 'SECURE' and dst_cat in ['MAHASISWA', 'DOSEN']:
             if icmp_type == icmp.ICMP_ECHO_REPLY:
-                # Untuk reply, arah sebenarnya adalah dst->src
+                # ICMP reply dari Secure ke user zone
                 return True, format_log_message("ALLOW", "ICMP Echo Reply", src_cat, dst_cat), False
+            # Non-ICMP traffic tetap di-block
             return False, format_log_message("BLOCK", "Unauthorized Access", src_cat, dst_cat, "Security Zone"), False
 
-        # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
-        if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
+        # RULE 3: Mahasiswa/Dosen -> Secure (BLOCK)
+        if src_cat in ['MAHASISWA', 'DOSEN'] and dst_cat == 'SECURE':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
-                # Untuk reply, arah sebenarnya adalah dst->src
-                return True, format_log_message("ALLOW", "ICMP Echo Reply", src_cat, dst_cat), False
-            return False, format_log_message("BLOCK", "Unauthorized Access", src_cat, dst_cat, "Faculty Network"), False
-
-        # RULE 3a: Mahasiswa -> Dekan via ICMP reply (ALLOW)
-        if src_cat == 'MAHASISWA' and ip_in_zone(dst_ip, 'DEKAN'):
-            if icmp_type == icmp.ICMP_ECHO_REPLY:
-                # Ini reply dari Mahasiswa ke Dekan (setelah Dekan ping Mahasiswa)
-                return True, format_log_message("ALLOW", "ICMP Echo Reply", src_cat, "Dekan"), False
-            return False, format_log_message("BLOCK", "Unauthorized Access", src_cat, "Dekan", "Administrative Zone"), False
+                # Ini tidak mungkin (reply tidak mungkin dari mahasiswa ke secure)
+                return False, format_log_message("BLOCK", "Invalid ICMP Reply", src_cat, dst_cat), False
+            return False, format_log_message("BLOCK", "Unauthorized Access", src_cat, dst_cat, "Security Zone"), False
 
         # RULE 4: Dosen -> Ujian (BLOCK)
         if src_cat == 'DOSEN' and ip_in_zone(dst_ip, 'UJIAN'):
@@ -226,23 +222,30 @@ class GedungController(app_manager.RyuApp):
         src_building = get_building(src_ip)
         dst_building = get_building(dst_ip)
 
-        # RULE 6a: Antar lantai di gedung yang sama - ALLOW untuk semua kategori kecuali mahasiswa ke secure/dosen
+        # RULE 6: Antar lantai di gedung yang sama
         if src_building == dst_building and src_building != 'UNKNOWN':
-            if src_cat == 'MAHASISWA' and dst_cat in ['SECURE', 'DOSEN']:
+            if src_cat in ['DOSEN', 'SECURE']:
+                # Dosen dan Secure boleh akses antar lantai
+                return True, format_log_message("ALLOW", "Inter-floor Communication", src_cat, dst_cat, src_building), True
+            elif src_cat == 'MAHASISWA' and dst_cat in ['DOSEN', 'SECURE']:
+                # Mahasiswa coba akses Dosen/Secure -> BLOCK (kecuali ICMP reply)
                 if icmp_type == icmp.ICMP_ECHO_REPLY:
-                    # Untuk reply, arah sebenarnya adalah dst->src
+                    # ICMP reply dari Dosen/Secure ke Mahasiswa
                     return True, format_log_message("ALLOW", "ICMP Echo Reply", src_cat, dst_cat, f"inter-floor {src_building}"), False
-                return False, format_log_message("BLOCK", "Unauthorized Access", src_cat, dst_cat, f"inter-floor {src_building}"), False
+                return False, format_log_message("BLOCK", "Inter-floor Access", src_cat, dst_cat, f"inter-floor {src_building}"), False
             else:
+                # Default allow untuk lainnya
                 return True, format_log_message("ALLOW", "Inter-floor Communication", src_cat, dst_cat, src_building), True
 
-        # RULE 7: Antar gedung (G9 <-> G10) - ALLOW untuk Dosen dan Secure, BLOCK untuk Mahasiswa
+        # RULE 7: Antar gedung (G9 <-> G10)
         if src_building != dst_building and src_building != 'UNKNOWN' and dst_building != 'UNKNOWN':
             if src_cat in ['DOSEN', 'SECURE']:
+                # Dosen dan Secure boleh akses antar gedung
                 return True, format_log_message("ALLOW", "Inter-building Access", src_cat, dst_cat, f"{src_building}->{dst_building}"), True
             elif src_cat == 'MAHASISWA':
+                # Mahasiswa coba akses antar gedung -> BLOCK (kecuali ICMP reply)
                 if icmp_type == icmp.ICMP_ECHO_REPLY:
-                    # Untuk reply, arah sebenarnya adalah dst->src
+                    # ICMP reply dari target ke Mahasiswa
                     return True, format_log_message("ALLOW", "ICMP Echo Reply", src_cat, dst_cat, f"inter-building {src_building}->{dst_building}"), False
                 return False, format_log_message("BLOCK", "Inter-building Access", src_cat, dst_cat, f"{src_building}->{dst_building}"), False
 

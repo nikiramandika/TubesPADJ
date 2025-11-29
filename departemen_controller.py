@@ -4,7 +4,6 @@ from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp
-import ipaddress
 
 class MedicalSimpleController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -12,38 +11,67 @@ class MedicalSimpleController(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(MedicalSimpleController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
-        
-        # Definisi zona dengan subnet CIDR (strict=False untuk mengizinkan host bits)
+                
         self.zones = {
-            # GEDUNG G9
-            'MAHASISWA_G9_LT1_WIRELESS': ipaddress.ip_network('192.168.0.0/22', strict=False),
-            'MAHASISWA_G9_LT1_KABEL': ipaddress.ip_network('192.168.10.0/27', strict=False),
-            
-            'ADMIN_SECURE_G9_LT2_WIRELESS': ipaddress.ip_network('192.168.5.0/24', strict=False),
-            'ADMIN_SECURE_G9_LT2_KABEL': ipaddress.ip_network('192.168.10.32/26', strict=False),
-            
-            'LAB_G9_LT3_WIRELESS': ipaddress.ip_network('192.168.4.0/22', strict=False),
-            'LAB_G9_LT3_KABEL': ipaddress.ip_network('192.168.10.96/25', strict=False),
-            
-            # GEDUNG G10
-            'ADMIN_G10_LT1_WIRELESS': ipaddress.ip_network('172.16.20.0/26', strict=False),
-            'ADMIN_G10_LT1_KABEL': ipaddress.ip_network('172.16.21.0/28', strict=False),
-            
-            'DOSEN_G10_LT2_WIRELESS': ipaddress.ip_network('172.16.20.64/25', strict=False),
-            'DOSEN_G10_LT2_KABEL': ipaddress.ip_network('172.16.21.16/29', strict=False),
-            
-            'DOSEN_G10_LT3_WIRELESS': ipaddress.ip_network('172.16.20.192/26', strict=False),
-            'DOSEN_G10_LT3_KABEL': ipaddress.ip_network('172.16.21.32/26', strict=False),
-        }
-        
-        # Mapping IP ke kategori zona
-        self.zone_mapping = {
-            'MAHASISWA': ['MAHASISWA_G9_LT1_WIRELESS', 'MAHASISWA_G9_LT1_KABEL', 
-                         'LAB_G9_LT3_WIRELESS', 'LAB_G9_LT3_KABEL'],
-            'SECURE': ['ADMIN_SECURE_G9_LT2_WIRELESS', 'ADMIN_SECURE_G9_LT2_KABEL',
-                      'ADMIN_G10_LT1_WIRELESS', 'ADMIN_G10_LT1_KABEL'],
-            'DOSEN': ['DOSEN_G10_LT2_WIRELESS', 'DOSEN_G10_LT2_KABEL',
-                     'DOSEN_G10_LT3_WIRELESS', 'DOSEN_G10_LT3_KABEL'],
+            # Mahasiswa: Semua IP Nirkabel dari Gedung G9 dan G10
+            'MAHASISWA': [
+                # G9 Lantai 1 Nirkabel: 172.16.9.0/25
+                '172.16.9.1', '172.16.9.2',
+                # G9 Lantai 2 Nirkabel: 172.16.10.0/25
+                '172.16.10.1', '172.16.10.2',
+                # G9 Lantai 3 Nirkabel: 172.16.11.0/25
+                '172.16.11.1', '172.16.11.2',
+                # G10 Lantai 1 Nirkabel: 172.16.20.0/25
+                '172.16.20.1', '172.16.20.2',
+                # G10 Lantai 2 Nirkabel: 172.16.20.128/25
+                '172.16.20.129', '172.16.20.130',
+                # G10 Lantai 3 Nirkabel: 172.16.21.0/25
+                '172.16.21.1', '172.16.21.2'
+            ],
+
+            # Lab Komputer: Diperlakukan sama seperti Mahasiswa (Student Network)
+            'LAB': [
+                # G9 Lantai 3 Kabel: 172.16.12.64/27
+                '172.16.12.65', '172.16.12.66', # Lab 1
+                '172.16.12.67', '172.16.12.68', # Lab 2
+                '172.16.12.69', '172.16.12.70'  # Lab 3
+            ],
+
+            # Secure: Keuangan, Admin, Pimpinan, Ujian
+            'SECURE': [
+                # G9 Lantai 2 Kabel: 172.16.12.32/27 (Keuangan)
+                '172.16.12.33', '172.16.12.34',
+                # G10 Lantai 1 Kabel: 172.16.21.128/27 (Admin)
+                '172.16.21.129', '172.16.21.130',
+                # G9 Lantai 2 Kabel: 172.16.12.32/27 (Pimpinan)
+                '172.16.12.35', '172.16.12.36',
+                # G9 Lantai 2 Kabel: 172.16.12.32/27 (Ujian)
+                '172.16.12.39', '172.16.12.40'
+            ],
+
+            # Dosen: Semua IP Kabel Dosen dari Gedung G9 dan G10
+            'DOSEN': [
+                # G9 Lantai 2 Kabel: 172.16.12.32/27
+                '172.16.12.37', '172.16.12.38',
+                # G10 Lantai 2 Kabel: 172.16.21.160/28
+                '172.16.21.161', '172.16.21.162',
+                # G10 Lantai 3 Kabel: 172.16.21.176/28
+                '172.16.21.177', '172.16.21.178'
+            ],
+
+            # Sub-group khusus untuk rule spesifik
+            'KEUANGAN':  [
+                # G9 Lantai 2 Kabel: 172.16.12.32/27
+                '172.16.12.33', '172.16.12.34'
+            ],
+            'DEKAN':     [
+                # G9 Lantai 2 Kabel: 172.16.12.32/27
+                '172.16.12.35', '172.16.12.36'
+            ],
+            'UJIAN':     [
+                # G9 Lantai 2 Kabel: 172.16.12.32/27
+                '172.16.12.39', '172.16.12.40'
+            ]
         }
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -66,58 +94,85 @@ class MedicalSimpleController(app_manager.RyuApp):
         datapath.send_msg(mod)
 
     def get_zone_category(self, ip_addr):
-        """Tentukan kategori zona dari IP address"""
-        try:
-            ip = ipaddress.ip_address(ip_addr)
-            
-            for zone_name, network in self.zones.items():
-                if ip in network:
-                    # Tentukan kategori utama
-                    if 'MAHASISWA' in zone_name or 'LAB' in zone_name:
-                        return 'MAHASISWA', zone_name
-                    elif 'SECURE' in zone_name or 'ADMIN' in zone_name:
-                        return 'SECURE', zone_name
-                    elif 'DOSEN' in zone_name:
-                        return 'DOSEN', zone_name
-            
-            return 'UNKNOWN', None
-        except:
-            return 'UNKNOWN', None
+        # Cek IP masuk kategori mana
+        if ip_addr in self.zones['MAHASISWA']: return 'MAHASISWA'
+        if ip_addr in self.zones['LAB']:       return 'MAHASISWA'
+        if ip_addr in self.zones['SECURE']:    return 'SECURE'
+        if ip_addr in self.zones['DOSEN']:     return 'DOSEN'
+        return 'UNKNOWN'
 
     def check_security(self, src_ip, dst_ip, icmp_type=None):
-        """Cek keamanan komunikasi antar zona"""
-        src_cat, src_zone = self.get_zone_category(src_ip)
-        dst_cat, dst_zone = self.get_zone_category(dst_ip)
+        src_cat = self.get_zone_category(src_ip)
+        dst_cat = self.get_zone_category(dst_ip)
 
-        # RULE 1: Intra-zone communication - ALLOW (komunikasi dalam zone yang sama)
-        if src_zone == dst_zone and src_cat != 'UNKNOWN':
-            return True, f"ALLOW: Intra-zone communication ({src_cat})", True
+        # RULE 1: Keuangan ke Dekan -> ALLOW (Izin Khusus Internal Secure)
+        if src_ip in self.zones['KEUANGAN'] and dst_ip in self.zones['DEKAN']:
+             return True, "ALLOW: Internal Report (Keuangan -> Dekan)", True
+
+        # RULE 1a: Dekan bisa mengakses semua zona (Mahasiswa, Lab, Dosen) -> ALLOW
+        if src_ip in self.zones['DEKAN']:
+            return True, "ALLOW: Dekan mengakses jaringan", True
 
         # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
+
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman", False
 
         # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
+
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen Pribadi", False
 
-        # RULE 4: Dosen -> Secure (BLOCK)
+        # RULE 4: Dosen -> Ujian (BLOCK)
+        if src_cat == 'DOSEN' and dst_ip in self.zones['UJIAN']:
+            return False, "BLOCK: Dosen akses Server Ujian", False
+
+        # RULE 5: Dosen -> Secure (BLOCK)
         if src_cat == 'DOSEN' and dst_cat == 'SECURE':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
+
             return False, "BLOCK: Dosen akses Zona Aman", False
 
-        # RULE 5: Secure -> Dosen (ALLOW - admin dapat akses semua)
-        if src_cat == 'SECURE' and dst_cat == 'DOSEN':
-            return True, "ALLOW: Admin/Secure akses Dosen", True
+        # RULE 6: Antar lantai yang sama di gedung yang sama - PERIKSA OKTET KE-3
+        # Gedung G9: 172.16.9.*, 172.16.10.*, 172.16.11.*, 172.16.12.*
+        # Gedung G10: 172.16.20.*, 172.16.21.*
+        def get_building(ip_addr):
+            try:
+                octets = ip_addr.split('.')
+                if octets[0] == '172' and octets[1] == '16':
+                    if octets[2] in ['9', '10', '11', '12']:
+                        return 'G9'
+                    elif octets[2] in ['20', '21']:
+                        return 'G10'
+            except:
+                pass
+            return 'UNKNOWN'
 
-        # RULE 6: Secure -> Mahasiswa (ALLOW - admin dapat akses semua)
-        if src_cat == 'SECURE' and dst_cat == 'MAHASISWA':
-            return True, "ALLOW: Admin/Secure akses Mahasiswa", True
+        src_building = get_building(src_ip)
+        dst_building = get_building(dst_ip)
+
+        # RULE 6a: Antar lantai di gedung yang sama - ALLOW untuk semua kategori kecuali mahasiswa ke secure/dosen
+        if src_building == dst_building and src_building != 'UNKNOWN':
+            if src_cat == 'MAHASISWA' and dst_cat in ['SECURE', 'DOSEN']:
+                if icmp_type == icmp.ICMP_ECHO_REPLY:
+                    return True, "ALLOW: Ping Reply (Return Traffic)", False
+                return False, f"BLOCK: Mahasiswa lantai lain akses {dst_cat} di {src_building}", False
+            else:
+                return True, f"ALLOW: Komunikasi antar lantai di {src_building}", True
+
+        # RULE 7: Antar gedung (G9 <-> G10) - ALLOW untuk Dosen dan Secure, BLOCK untuk Mahasiswa
+        if src_building != dst_building and src_building != 'UNKNOWN' and dst_building != 'UNKNOWN':
+            if src_cat in ['DOSEN', 'SECURE']:
+                return True, f"ALLOW: {src_cat} akses antar gedung", True
+            elif src_cat == 'MAHASISWA':
+                if icmp_type == icmp.ICMP_ECHO_REPLY:
+                    return True, "ALLOW: Ping Reply (Return Traffic)", False
+                return False, "BLOCK: Mahasiswa akses antar gedung", False
 
         return True, "ALLOW: Akses Diizinkan", True
 
@@ -132,8 +187,7 @@ class MedicalSimpleController(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
         
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            return
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP: return
 
         dst = eth.dst
         src = eth.src
@@ -141,9 +195,10 @@ class MedicalSimpleController(app_manager.RyuApp):
         self.mac_to_port.setdefault(dpid, {})
         self.mac_to_port[dpid][src] = in_port
 
+        # Variabel kontrol flow
         should_install_flow = True
 
-        # LOGIKA FIREWALL
+        # --- LOGIKA FIREWALL ---
         if eth.ethertype == ether_types.ETH_TYPE_IP:
             ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
             src_ip = ipv4_pkt.src
@@ -159,7 +214,7 @@ class MedicalSimpleController(app_manager.RyuApp):
             
             if not allowed:
                 self.logger.warning(f"{reason} | {src_ip} -> {dst_ip}")
-                return
+                return 
             else:
                 self.logger.info(f"{reason} | {src_ip} -> {dst_ip}")
 
@@ -180,16 +235,13 @@ class MedicalSimpleController(app_manager.RyuApp):
                     self.add_flow(datapath, 1, match, actions)
             else:
                 data = None
-                if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-                    data = msg.data
+                if msg.buffer_id == ofproto.OFP_NO_BUFFER: data = msg.data
                 out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, 
-                                         in_port=in_port, actions=actions, data=data)
+                                          in_port=in_port, actions=actions, data=data)
                 datapath.send_msg(out)
                 return
         
         data = None
-        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-            data = msg.data
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, 
-                                 in_port=in_port, actions=actions, data=data)
+        if msg.buffer_id == ofproto.OFP_NO_BUFFER: data = msg.data
+        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)

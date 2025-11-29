@@ -11,9 +11,7 @@ class MedicalSimpleController(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(MedicalSimpleController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
-        
-        # DEFINISI ZONA BERDASARKAN IP ADDRESS (FLAT /24)
-        
+                
         self.zones = {
             # Mahasiswa: G9 AP Lt1 (.101, .102), G9 AP Lt3 (.103, .104), Aula (.105, .106)
             'MAHASISWA': [
@@ -79,9 +77,6 @@ class MedicalSimpleController(app_manager.RyuApp):
     def check_security(self, src_ip, dst_ip, icmp_type=None):
         src_cat = self.get_zone_category(src_ip)
         dst_cat = self.get_zone_category(dst_ip)
-        
-        # Format Return: (Allowed, Reason, Install_Flow)
-        # Install_Flow = False artinya "Jangan ingat keputusan ini, cek lagi paket berikutnya"
 
         # RULE 1: Keuangan ke Dekan -> ALLOW (Izin Khusus Internal Secure)
         if src_ip in self.zones['KEUANGAN'] and dst_ip in self.zones['DEKAN']:
@@ -106,6 +101,10 @@ class MedicalSimpleController(app_manager.RyuApp):
         # RULE 4: Dosen -> Ujian (BLOCK)
         if src_cat == 'DOSEN' and dst_ip in self.zones['UJIAN']:
             return False, "BLOCK: Dosen akses Server Ujian", False
+        
+        # RULE 5: Dosen -> Secure (BLOCK)
+        if src_cat == 'DOSEN' and dst_cat == 'SECURE':
+            return False, "BLOCK: Dosen akses Zona Aman", False
 
         return True, "ALLOW: Akses Diizinkan", True
 
@@ -138,7 +137,7 @@ class MedicalSimpleController(app_manager.RyuApp):
             dst_ip = ipv4_pkt.dst
             
             icmp_type = None
-            if ipv4_pkt.proto == 1: # 1 = ICMP
+            if ipv4_pkt.proto == 1:
                 icmp_p = pkt.get_protocol(icmp.icmp)
                 if icmp_p:
                     icmp_type = icmp_p.type

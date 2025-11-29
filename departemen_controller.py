@@ -69,7 +69,7 @@ class MedicalSimpleController(app_manager.RyuApp):
     def get_zone_category(self, ip_addr):
         # Cek IP masuk kategori mana
         if ip_addr in self.zones['MAHASISWA']: return 'MAHASISWA'
-        if ip_addr in self.zones['LAB']:       return 'MAHASISWA' # Lab dianggap zona Mahasiswa
+        if ip_addr in self.zones['LAB']:       return 'MAHASISWA'
         if ip_addr in self.zones['SECURE']:    return 'SECURE'
         if ip_addr in self.zones['DOSEN']:     return 'DOSEN'
         return 'UNKNOWN'
@@ -143,16 +143,14 @@ class MedicalSimpleController(app_manager.RyuApp):
                 if icmp_p:
                     icmp_type = icmp_p.type
 
-            # Ambil 3 nilai return
             allowed, reason, should_install_flow = self.check_security(src_ip, dst_ip, icmp_type)
             
             if not allowed:
                 self.logger.warning(f"{reason} | {src_ip} -> {dst_ip}")
-                return # DROP
+                return 
             else:
                 self.logger.info(f"{reason} | {src_ip} -> {dst_ip}")
 
-        # Standard L2 Switching
         out_port = ofproto.OFPP_FLOOD
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
@@ -162,7 +160,6 @@ class MedicalSimpleController(app_manager.RyuApp):
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src, eth_type=eth.ethertype)
             
-            # HANYA pasang flow jika diizinkan (should_install_flow == True)
             if should_install_flow:
                 if msg.buffer_id != ofproto.OFP_NO_BUFFER:
                     self.add_flow(datapath, 1, match, actions, msg.buffer_id)
@@ -170,8 +167,6 @@ class MedicalSimpleController(app_manager.RyuApp):
                 else:
                     self.add_flow(datapath, 1, match, actions)
             else:
-                # Jika should_install_flow == False (misal Ping Reply),
-                # Kita kirim paketnya SAJA tanpa merekam rule di switch.
                 data = None
                 if msg.buffer_id == ofproto.OFP_NO_BUFFER: data = msg.data
                 out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, 

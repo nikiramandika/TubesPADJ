@@ -37,13 +37,13 @@ class MedicalSimpleController(app_manager.RyuApp):
                  'start': '192.168.10.97', 'end': '192.168.10.126'},
             ],
 
-            # Secure: Keuangan, Admin, Pimpinan, Ujian (subnet ranges)
+            # Secure: Administrasi(Keuangan), Admin, Pimpinan, Ujian (subnet ranges)
             'SECURE': [
                 # G9 Secure ranges
                 {'network': '192.168.10.32', 'mask': 16, # Keuangan/Ujian 192.168.10.32/16
                  'start': '192.168.10.33', 'end': '192.168.10.62'},
                 # G10 Secure ranges
-                {'network': '192.168.21.0', 'mask': 16,   # Admin 192.168.21.0/16
+                {'network': '192.168.21.0', 'mask': 16,   # Administrasi 192.168.21.0/16
                  'start': '192.168.21.1', 'end': '192.168.21.14'},
             ],
 
@@ -201,7 +201,7 @@ class MedicalSimpleController(app_manager.RyuApp):
                 if octets[0] == '192' and octets[1] == '168':
                     if octets[2] in ['1', '5', '6', '10']:
                         return 'G9'
-                elif octets[0] == '172' and octets[1] == '16':
+                elif octets[0] == '192' and octets[1] == '168':
                     if octets[2] in ['20', '21']:
                         return 'G10'
             except:

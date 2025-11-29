@@ -182,7 +182,7 @@ class MedicalSimpleController(app_manager.RyuApp):
                     buffer_id=ofproto.OFP_NO_BUFFER,
                     in_port=in_port,
                     actions=actions,
-                    data=eth_pkt.data
+                    data=eth_pkt
                 )
                 datapath.send_msg(out)
 
@@ -208,7 +208,7 @@ class MedicalSimpleController(app_manager.RyuApp):
                 buffer_id=ofproto.OFP_NO_BUFFER,
                 in_port=in_port,
                 actions=actions,
-                data=eth_pkt.data
+                data=eth_pkt
             )
             datapath.send_msg(out)
 

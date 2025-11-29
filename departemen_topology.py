@@ -119,15 +119,15 @@ class MedicalSimpleTopo(Topo):
         s_g10_lt1 = self.addSwitch('s14')
         self.addLink(s_dist_g10, s_g10_lt1)
 
-        # IP Nirkabel Gedung G10 Lantai 1: 172.16.20.0/26
-        h_mhs_g10_1 = self.addHost('mhsg10_1', ip='172.16.20.1/16')
-        h_mhs_g10_2 = self.addHost('mhsg10_2', ip='172.16.20.2/16')
+        # IP Nirkabel Gedung G10 Lantai 1: 192.168.20.0/26
+        h_mhs_g10_1 = self.addHost('mhsg10_1', ip='192.168.20.1/16')
+        h_mhs_g10_2 = self.addHost('mhsg10_2', ip='192.168.20.2/16')
         self.addLink(s_g10_lt1, h_mhs_g10_1)
         self.addLink(s_g10_lt1, h_mhs_g10_2)
 
-        # IP Kabel Gedung G10 Lantai 1: 172.16.21.0/28
-        h_adm_g10_1 = self.addHost('adm10a', ip='172.16.21.1/16')
-        h_adm_g10_2 = self.addHost('adm10b', ip='172.16.21.2/16')
+        # IP Kabel Gedung G10 Lantai 1: 192.168.21.0/28
+        h_adm_g10_1 = self.addHost('adm10a', ip='192.168.21.1/16')
+        h_adm_g10_2 = self.addHost('adm10b', ip='192.168.21.2/16')
         self.addLink(s_g10_lt1, h_adm_g10_1)
         self.addLink(s_g10_lt1, h_adm_g10_2)
 
@@ -135,17 +135,17 @@ class MedicalSimpleTopo(Topo):
         s_g10_lt2 = self.addSwitch('s15')
         self.addLink(s_dist_g10, s_g10_lt2)
 
-        # IP Nirkabel Gedung G10 Lantai 2: 172.16.20.64/25
-        h_mhs_g10_lt2_1 = self.addHost('mhsg10_2a', ip='172.16.20.65/16')
-        h_mhs_g10_lt2_2 = self.addHost('mhsg10_2b', ip='172.16.20.66/16')
+        # IP Nirkabel Gedung G10 Lantai 2: 192.168.20.64/25
+        h_mhs_g10_lt2_1 = self.addHost('mhsg10_2a', ip='192.168.20.65/16')
+        h_mhs_g10_lt2_2 = self.addHost('mhsg10_2b', ip='192.168.20.66/16')
         self.addLink(s_g10_lt2, h_mhs_g10_lt2_1)
         self.addLink(s_g10_lt2, h_mhs_g10_lt2_2)
 
-        # IP Kabel Gedung G10 Lantai 2: 172.16.21.16/29
-        h_dsn_10a_1 = self.addHost('dsn10a1', ip='172.16.21.17/16')
-        h_dsn_10a_2 = self.addHost('dsn10a2', ip='172.16.21.18/16')
-        h_aula_1 = self.addHost('aula1', ip='172.16.21.19/16')
-        h_aula_2 = self.addHost('aula2', ip='172.16.21.20/16')
+        # IP Kabel Gedung G10 Lantai 2: 192.168.21.16/29
+        h_dsn_10a_1 = self.addHost('dsn10a1', ip='192.168.21.17/16')
+        h_dsn_10a_2 = self.addHost('dsn10a2', ip='192.168.21.18/16')
+        h_aula_1 = self.addHost('aula1', ip='192.168.21.19/16')
+        h_aula_2 = self.addHost('aula2', ip='192.168.21.20/16')
         self.addLink(s_g10_lt2, h_dsn_10a_1)
         self.addLink(s_g10_lt2, h_dsn_10a_2)
         self.addLink(s_g10_lt2, h_aula_1)
@@ -155,15 +155,15 @@ class MedicalSimpleTopo(Topo):
         s_g10_lt3 = self.addSwitch('s16')
         self.addLink(s_dist_g10, s_g10_lt3)
 
-        # IP Nirkabel Gedung G10 Lantai 3: 172.16.20.192/26
-        h_mhs_g10_lt3_1 = self.addHost('mhsg10_3a', ip='172.16.20.193/16')
-        h_mhs_g10_lt3_2 = self.addHost('mhsg10_3b', ip='172.16.20.194/16')
+        # IP Nirkabel Gedung G10 Lantai 3: 192.168.20.192/26
+        h_mhs_g10_lt3_1 = self.addHost('mhsg10_3a', ip='192.168.20.193/16')
+        h_mhs_g10_lt3_2 = self.addHost('mhsg10_3b', ip='192.168.20.194/16')
         self.addLink(s_g10_lt3, h_mhs_g10_lt3_1)
         self.addLink(s_g10_lt3, h_mhs_g10_lt3_2)
 
-        # IP Kabel Gedung G10 Lantai 3: 172.16.21.32/26
-        h_dsn_10b_1 = self.addHost('dsn10b1', ip='172.16.21.33/16')
-        h_dsn_10b_2 = self.addHost('dsn10b2', ip='172.16.21.34/16')
+        # IP Kabel Gedung G10 Lantai 3: 192.168.21.32/26
+        h_dsn_10b_1 = self.addHost('dsn10b1', ip='192.168.21.33/16')
+        h_dsn_10b_2 = self.addHost('dsn10b2', ip='192.168.21.34/16')
         self.addLink(s_g10_lt3, h_dsn_10b_1)
         self.addLink(s_g10_lt3, h_dsn_10b_2)
 

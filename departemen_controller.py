@@ -21,12 +21,12 @@ class MedicalSimpleController(app_manager.RyuApp):
                 '192.168.5.1', '192.168.5.2',
                 # G9 Lantai 3 Nirkabel: 192.168.6.0/22
                 '192.168.6.1', '192.168.6.2',
-                # G10 Lantai 1 Nirkabel: 172.16.20.0/26
-                '172.16.20.1', '172.16.20.2',
-                # G10 Lantai 2 Nirkabel: 172.16.20.64/25
-                '172.16.20.65', '172.16.20.66',
-                # G10 Lantai 3 Nirkabel: 172.16.20.192/26
-                '172.16.20.193', '172.16.20.194'
+                # G10 Lantai 1 Nirkabel: 192.168.20.0/26
+                '192.168.20.1', '192.168.20.2',
+                # G10 Lantai 2 Nirkabel: 192.168.20.64/25
+                '192.168.20.65', '192.168.20.66',
+                # G10 Lantai 3 Nirkabel: 192.168.20.192/26
+                '192.168.20.193', '192.168.20.194'
             ],
 
             # Lab Komputer: Diperlakukan sama seperti Mahasiswa (Student Network)
@@ -41,8 +41,8 @@ class MedicalSimpleController(app_manager.RyuApp):
             'SECURE': [
                 # G9 Lantai 2 Kabel: 192.168.10.32/26 (Keuangan)
                 '192.168.10.33', '192.168.10.34',
-                # G10 Lantai 1 Kabel: 172.16.21.0/28 (Admin)
-                '172.16.21.1', '172.16.21.2',
+                # G10 Lantai 1 Kabel: 192.168.21.0/28 (Admin)
+                '192.168.21.1', '192.168.21.2',
                 # G9 Lantai 2 Kabel: 192.168.10.32/26 (Pimpinan)
                 '192.168.10.35', '192.168.10.36',
                 # G9 Lantai 2 Kabel: 192.168.10.32/26 (Ujian)
@@ -53,10 +53,10 @@ class MedicalSimpleController(app_manager.RyuApp):
             'DOSEN': [
                 # G9 Lantai 2 Kabel: 192.168.10.32/26
                 '192.168.10.37', '192.168.10.38',
-                # G10 Lantai 2 Kabel: 172.16.21.16/29
-                '172.16.21.17', '172.16.21.18',
-                # G10 Lantai 3 Kabel: 172.16.21.32/26
-                '172.16.21.33', '172.16.21.34'
+                # G10 Lantai 2 Kabel: 192.168.21.16/29
+                '192.168.21.17', '192.168.21.18',
+                # G10 Lantai 3 Kabel: 192.168.21.32/26
+                '192.168.21.33', '192.168.21.34'
             ],
 
             # Sub-group khusus untuk rule spesifik
@@ -140,7 +140,7 @@ class MedicalSimpleController(app_manager.RyuApp):
 
         # RULE 6: Antar lantai yang sama di gedung yang sama - PERIKSA OKTET KE-3
         # Gedung G9: 192.168.1.*, 192.168.5.*, 192.168.6.*, 192.168.10.*
-        # Gedung G10: 172.16.20.*, 172.16.21.*
+        # Gedung G10: 192.168.20.*, 192.168.21.*
         def get_building(ip_addr):
             try:
                 octets = ip_addr.split('.')

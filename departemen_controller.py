@@ -170,10 +170,14 @@ class GedungController(app_manager.RyuApp):
 
         # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Mahasiswa -> Secure)", False
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman", False
 
         # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Mahasiswa -> Dosen)", False
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen", False
 
         # RULE 4: Dosen -> Ujian (BLOCK)

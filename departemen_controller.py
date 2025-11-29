@@ -11,254 +11,292 @@ class GedungController(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(GedungController, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
-
-        # Semua zona berdasarkan rentang IP
+                
         self.zones = {
+            # Mahasiswa: Semua IP Nirkabel (subnet ranges)
             'MAHASISWA': [
-                {'start': '192.168.1.1', 'end': '192.168.4.254'},
-                {'start': '192.168.5.1', 'end': '192.168.5.254'},
-                {'start': '192.168.6.1', 'end': '192.168.9.254'},
-                {'start': '192.168.20.1', 'end': '192.168.20.62'},
-                {'start': '192.168.20.65', 'end': '192.168.20.190'},
-                {'start': '192.168.20.193', 'end': '192.168.20.254'},
+                # G9 WiFi ranges
+                {'network': '192.168.1.0', 'mask': 16,   # 192.168.1.0/16 (192.168.1.1 - 192.168.4.254)
+                 'start': '192.168.1.1', 'end': '192.168.4.254'},
+                {'network': '192.168.5.0', 'mask': 16,   # 192.168.5.0/16
+                 'start': '192.168.5.1', 'end': '192.168.5.254'},
+                {'network': '192.168.6.0', 'mask': 16,   # 192.168.6.0/16 (192.168.6.1 - 192.168.9.254)
+                 'start': '192.168.6.1', 'end': '192.168.9.254'},
+                # G10 WiFi ranges
+                {'network': '192.168.20.0', 'mask': 16,  # 192.168.20.0/16
+                 'start': '192.168.20.1', 'end': '192.168.20.62'},
+                {'network': '192.168.20.64', 'mask': 16, # 192.168.20.64/16
+                 'start': '192.168.20.65', 'end': '192.168.20.190'},
+                {'network': '192.168.20.192', 'mask': 16, # 192.168.20.192/16
+                 'start': '192.168.20.193', 'end': '192.168.20.254'}
             ],
 
+            # Lab Komputer: Student Network (subnet ranges)
             'LAB': [
-                {'start': '192.168.10.97', 'end': '192.168.10.126'},
+                {'network': '192.168.10.96', 'mask': 16, # 192.168.10.96/16
+                 'start': '192.168.10.97', 'end': '192.168.10.126'},
             ],
 
+            # Secure: Administrasi(Keuangan), Admin, Pimpinan, Ujian (subnet ranges)
             'SECURE': [
-                {'start': '192.168.10.33', 'end': '192.168.10.62'},
-                {'start': '192.168.21.1', 'end': '192.168.21.14'},
+                # G9 Secure ranges
+                {'network': '192.168.10.32', 'mask': 16, # Keuangan/Ujian 192.168.10.32/16
+                 'start': '192.168.10.33', 'end': '192.168.10.62'},
+                # G10 Secure ranges
+                {'network': '192.168.21.0', 'mask': 16,   # Administrasi 192.168.21.0/16
+                 'start': '192.168.21.1', 'end': '192.168.21.14'},
             ],
 
+            # Dosen: Semua IP Kabel Dosen (subnet ranges)
             'DOSEN': [
-                {'start': '192.168.10.37', 'end': '192.168.10.38'},
-                {'start': '192.168.21.17', 'end': '192.168.21.22'},
-                {'start': '192.168.21.33', 'end': '192.168.21.62'},
+                # G9 Dosen
+                {'network': '192.168.10.32', 'mask': 16, # 192.168.10.32/16 (bagian dosen)
+                 'start': '192.168.10.37', 'end': '192.168.10.38'},
+                # G10 Dosen ranges
+                {'network': '192.168.21.16', 'mask': 16,  # 192.168.21.16/16
+                 'start': '192.168.21.17', 'end': '192.168.21.22'},
+                {'network': '192.168.21.32', 'mask': 16,  # 192.168.21.32/16
+                 'start': '192.168.21.33', 'end': '192.168.21.62'},
             ],
 
-            'KEUANGAN': [{'start': '192.168.10.33', 'end': '192.168.10.34'}],
-            'DEKAN': [{'start': '192.168.10.35', 'end': '192.168.10.36'}],
-            'UJIAN': [{'start': '192.168.10.39', 'end': '192.168.10.40'}],
+            # Sub-group khusus untuk rule spesifik
+            'KEUANGAN': [
+                {'network': '192.168.10.32', 'mask': 16,
+                 'start': '192.168.10.33', 'end': '192.168.10.34'}
+            ],
+            'DEKAN': [
+                {'network': '192.168.10.32', 'mask': 16,
+                 'start': '192.168.10.35', 'end': '192.168.10.36'}
+            ],
+            'UJIAN': [
+                {'network': '192.168.10.32', 'mask': 16,
+                 'start': '192.168.10.39', 'end': '192.168.10.40'}
+            ]
         }
 
-    # ============================================================
-    # Helper umum
-    # ============================================================
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    def switch_features_handler(self, ev):
+        datapath = ev.msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        match = parser.OFPMatch()
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
+        self.add_flow(datapath, 0, match, actions)
 
-    def ip_to_int(self, ip):
-        try:
-            p = ip.split('.')
-            return (int(p[0]) << 24) + (int(p[1]) << 16) + (int(p[2]) << 8) + int(p[3])
-        except:
-            return 0
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        if buffer_id:
+            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id, priority=priority, match=match, instructions=inst)
+        else:
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority, match=match, instructions=inst)
+        datapath.send_msg(mod)
 
-    def ip_in_range(self, ip, range_info):
-        ip_i = self.ip_to_int(ip)
-        s = self.ip_to_int(range_info['start'])
-        e = self.ip_to_int(range_info['end'])
-        return s <= ip_i <= e
+    def get_zone_category(self, ip_addr):
+        # Helper function untuk convert IP to integer
+        def ip_to_int(ip):
+            try:
+                parts = ip.split('.')
+                return (int(parts[0]) << 24) + (int(parts[1]) << 16) + (int(parts[2]) << 8) + int(parts[3])
+            except:
+                return 0
 
-    def ip_in_zone(self, ip, zone_name):
-        for r in self.zones[zone_name]:
-            if self.ip_in_range(ip, r):
-                return True
-        return False
+        # Helper function untuk cek IP dalam range
+        def ip_in_range(ip_addr, range_info):
+            if 'start' in range_info and 'end' in range_info:
+                ip_int = ip_to_int(ip_addr)
+                start_int = ip_to_int(range_info['start'])
+                end_int = ip_to_int(range_info['end'])
+                return start_int <= ip_int <= end_int
+            return False
 
-    # ============================================================
-    # Menentukan kategori zona
-    # ============================================================
+        def ip_in_zone(ip_addr, zone_name):
+            for range_info in self.zones[zone_name]:
+                if ip_in_range(ip_addr, range_info):
+                    return True
+            return False
 
-    def get_zone_category(self, ip):
-        for zone in ['KEUANGAN', 'DEKAN', 'UJIAN']:  # special group
-            if self.ip_in_zone(ip, zone):
-                return zone
-
-        if self.ip_in_zone(ip, 'LAB'):
-            return 'MAHASISWA'
-
-        for zone in ['MAHASISWA', 'SECURE', 'DOSEN']:
-            if self.ip_in_zone(ip, zone):
-                return zone
+        # Cek IP masuk kategori mana dengan subnet ranges
+        for zone_name, zone_ranges in self.zones.items():
+            if zone_name in ['KEUANGAN', 'DEKAN', 'UJIAN']:
+                continue  
+            if zone_name == 'LAB':
+                # Lab diperlakukan sebagai Mahasiswa
+                for range_info in zone_ranges:
+                    if ip_in_range(ip_addr, range_info):
+                        return 'MAHASISWA'
+            else:
+                for range_info in zone_ranges:
+                    if ip_in_range(ip_addr, range_info):
+                        return zone_name
 
         return 'UNKNOWN'
-
-    # ============================================================
-    # Gedung berdasarkan subnet
-    # ============================================================
-
-    def get_building(self, ip_addr):
-        try:
-            o = ip_addr.split('.')
-            if o[0] == '192' and o[1] == '168':
-                if o[2] in ['1', '5', '6', '10']:
-                    return 'G9'
-                if o[2] in ['20', '21']:
-                    return 'G10'
-        except:
-            pass
-        return 'UNKNOWN'
-
-    # ============================================================
-    # Firewall rules
-    # ============================================================
 
     def check_security(self, src_ip, dst_ip, icmp_type=None):
         src_cat = self.get_zone_category(src_ip)
         dst_cat = self.get_zone_category(dst_ip)
 
-        # RULE 1: Keuangan → Dekan (ALLOW)
-        if self.ip_in_zone(src_ip, 'KEUANGAN') and self.ip_in_zone(dst_ip, 'DEKAN'):
-            return True, "[SECURITY] Allowed: Finance → Dean (Internal Access)", True
+        # Helper functions
+        def ip_to_int(ip):
+            try:
+                parts = ip.split('.')
+                return (int(parts[0]) << 24) + (int(parts[1]) << 16) + (int(parts[2]) << 8) + int(parts[3])
+            except:
+                return 0
 
-        # RULE 1A: Dekan bisa akses apapun
-        if self.ip_in_zone(src_ip, 'DEKAN'):
-            return True, "[SECURITY] Allowed: Dean authorized across network", True
+        def ip_in_range(ip_addr, range_info):
+            if 'start' in range_info and 'end' in range_info:
+                ip_int = ip_to_int(ip_addr)
+                start_int = ip_to_int(range_info['start'])
+                end_int = ip_to_int(range_info['end'])
+                return start_int <= ip_int <= end_int
+            return False
 
-        # RULE 2: Mahasiswa → Secure (BLOCK)
+        def ip_in_zone(ip_addr, zone_name):
+            for range_info in self.zones[zone_name]:
+                if ip_in_range(ip_addr, range_info):
+                    return True
+            return False
+
+        # RULE 1: Keuangan ke Dekan -> ALLOW (Izin Khusus Internal Secure)
+        if ip_in_zone(src_ip, 'KEUANGAN') and ip_in_zone(dst_ip, 'DEKAN'):
+             return True, "ALLOW: Internal Report (Keuangan -> Dekan)", True
+
+        # RULE 1a: Dekan bisa mengakses semua zona (Mahasiswa, Lab, Dosen) -> ALLOW
+        if ip_in_zone(src_ip, 'DEKAN'):
+            return True, "ALLOW: Dekan mengakses jaringan", True
+
+        # RULE 2: Mahasiswa/Lab -> Secure (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, "[SECURITY] Allowed: ICMP reply to student", False
-            return False, "[SECURITY] Blocked: Student → Secure zone", False
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
 
-        # RULE 3: Mahasiswa → Dosen (BLOCK)
+            return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman", False
+
+        # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
         if src_cat == 'MAHASISWA' and dst_cat == 'DOSEN':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, "[SECURITY] Allowed: ICMP reply to student", False
-            return False, "[SECURITY] Blocked: Student → Lecturer zone", False
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
 
-        # RULE 4: Dosen → Ujian (BLOCK)
-        if src_cat == 'DOSEN' and self.ip_in_zone(dst_ip, 'UJIAN'):
-            return False, "[SECURITY] Blocked: Lecturer → Exam Server", False
+            return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen", False
 
-        # RULE 5: Dosen → Secure (BLOCK)
+        # RULE 4: Dosen -> Ujian (BLOCK)
+        if src_cat == 'DOSEN' and ip_in_zone(dst_ip, 'UJIAN'):
+            return False, "BLOCK: Dosen mencoba akses Server Ujian", False
+
+        # RULE 5: Dosen -> Secure (BLOCK)
         if src_cat == 'DOSEN' and dst_cat == 'SECURE':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
-                return True, "[SECURITY] Allowed: ICMP reply to Lecturer", False
-            return False, "[SECURITY] Blocked: Lecturer → Secure zone", False
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
 
-        # RULE 6: Antar lantai gedung yang sama
-        src_b = self.get_building(src_ip)
-        dst_b = self.get_building(dst_ip)
+            return False, "BLOCK: Dosen mencoba akses Zona Aman", False
+        
+        if ip_in_zone(src_ip, 'DEKAN') and ip_in_zone(dst_ip, 'KEUANGAN'):
+            return True, "ALLOW: Dekan mengakses jaringan Keuangan", True
 
-        if src_b == dst_b and src_b != 'UNKNOWN':
+        def get_building(ip_addr):
+            try:
+                octets = ip_addr.split('.')
+                if octets[0] == '192' and octets[1] == '168':
+                    if octets[2] in ['1', '5', '6', '10']:
+                        return 'G9'
+                elif octets[0] == '192' and octets[1] == '168':
+                    if octets[2] in ['20', '21']:
+                        return 'G10'
+            except:
+                pass
+            return 'UNKNOWN'
+
+        src_building = get_building(src_ip)
+        dst_building = get_building(dst_ip)
+
+        # RULE 6a: Antar lantai di gedung yang sama - ALLOW untuk semua kategori kecuali mahasiswa ke secure/dosen
+        if src_building == dst_building and src_building != 'UNKNOWN':
             if src_cat == 'MAHASISWA' and dst_cat in ['SECURE', 'DOSEN']:
-                return False, f"[SECURITY] Blocked: Student cross-floor → {dst_cat}", False
-            return True, f"[ACCESS] Allowed: Same building communication ({src_b})", True
+                if icmp_type == icmp.ICMP_ECHO_REPLY:
+                    return True, "ALLOW: Ping Reply (Return Traffic)", False
+                return False, f"BLOCK: Mahasiswa lantai lain akses {dst_cat} di {src_building}", False
+            else:
+                return True, f"ALLOW: Komunikasi antar lantai di {src_building}", True
 
-        # RULE 7: Antar gedung (G9 ↔ G10)
-        if src_b != dst_b and src_b != 'UNKNOWN' and dst_b != 'UNKNOWN':
+        # RULE 7: Antar gedung (G9 <-> G10) - ALLOW untuk Dosen dan Secure, BLOCK untuk Mahasiswa
+        if src_building != dst_building and src_building != 'UNKNOWN' and dst_building != 'UNKNOWN':
             if src_cat in ['DOSEN', 'SECURE']:
-                return True, f"[ACCESS] Allowed: {src_cat} inter-building access", True
-            if src_cat == 'MAHASISWA':
-                return False, "[SECURITY] Blocked: Student inter-building access", False
+                return True, f"ALLOW: {src_cat} akses antar gedung", True
+            elif src_cat == 'MAHASISWA':
+                if icmp_type == icmp.ICMP_ECHO_REPLY:
+                    return True, "ALLOW: Ping Reply (Return Traffic)", False
+                return False, "BLOCK: Mahasiswa akses antar gedung", False
 
-        # DEFAULT ALLOW
-        return True, "[ACCESS] Allowed: General Access", True
-
-    # ============================================================
-    # INSTALL DEFAULT FLOW
-    # ============================================================
-
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
-    def switch_features_handler(self, ev):
-        datapath = ev.msg.datapath
-        parser = datapath.ofproto_parser
-        actions = [parser.OFPActionOutput(datapath.ofproto.OFPP_CONTROLLER,
-                                          datapath.ofproto.OFPCML_NO_BUFFER)]
-        self.add_flow(datapath, 0, parser.OFPMatch(), actions)
-        self.logger.info("[FLOW] Installed default controller flow")
-
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
-        parser = datapath.ofproto_parser
-        ofproto = datapath.ofproto
-
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
-
-        mod = parser.OFPFlowMod(
-            datapath=datapath,
-            buffer_id=buffer_id if buffer_id else ofproto.OFP_NO_BUFFER,
-            priority=priority,
-            match=match,
-            instructions=inst
-        )
-
-        datapath.send_msg(mod)
-
-    # ============================================================
-    # PACKET IN HANDLER
-    # ============================================================
+        return True, "ALLOW: Akses Diizinkan", True
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         msg = ev.msg
         datapath = msg.datapath
-        parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
-        in_port = msg.match["in_port"]
+        parser = datapath.ofproto_parser
+        in_port = msg.match['in_port']
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
+        
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP: return
 
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            return  # ignore LLDP
-
-        src = eth.src
         dst = eth.dst
+        src = eth.src
         dpid = datapath.id
-
         self.mac_to_port.setdefault(dpid, {})
         self.mac_to_port[dpid][src] = in_port
 
+        # Variabel kontrol flow
         should_install_flow = True
 
-        # FIREWALL: jika IP packet → cek rules
+        # --- LOGIKA FIREWALL ---
         if eth.ethertype == ether_types.ETH_TYPE_IP:
-            ip_pkt = pkt.get_protocol(ipv4.ipv4)
-            src_ip = ip_pkt.src
-            dst_ip = ip_pkt.dst
-
+            ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+            src_ip = ipv4_pkt.src
+            dst_ip = ipv4_pkt.dst
+            
             icmp_type = None
-            if ip_pkt.proto == 1:
+            if ipv4_pkt.proto == 1:
                 icmp_p = pkt.get_protocol(icmp.icmp)
                 if icmp_p:
                     icmp_type = icmp_p.type
 
             allowed, reason, should_install_flow = self.check_security(src_ip, dst_ip, icmp_type)
-
+            
             if not allowed:
-                self.logger.warning(f"{reason} | {src_ip} → {dst_ip}")
-                return
+                self.logger.warning(f"{reason} | {src_ip} -> {dst_ip}")
+                return 
             else:
-                self.logger.info(f"{reason} | {src_ip} → {dst_ip}")
+                self.logger.info(f"{reason} | {src_ip} -> {dst_ip}")
 
-        # SWITCHING LOGIC
-        out_port = self.mac_to_port[dpid].get(dst, ofproto.OFPP_FLOOD)
+        out_port = ofproto.OFPP_FLOOD
+        if dst in self.mac_to_port[dpid]:
+            out_port = self.mac_to_port[dpid][dst]
+
         actions = [parser.OFPActionOutput(out_port)]
 
         if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_src=src, eth_dst=dst)
-
+            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src, eth_type=eth.ethertype)
+            
             if should_install_flow:
-                self.add_flow(datapath, 1, match, actions)
+                if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                    self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                    return
+                else:
+                    self.add_flow(datapath, 1, match, actions)
             else:
-                out = parser.OFPPacketOut(
-                    datapath=datapath,
-                    buffer_id=msg.buffer_id,
-                    in_port=in_port,
-                    actions=actions,
-                    data=msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None,
-                )
+                data = None
+                if msg.buffer_id == ofproto.OFP_NO_BUFFER: data = msg.data
+                out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, 
+                                          in_port=in_port, actions=actions, data=data)
                 datapath.send_msg(out)
                 return
-
-        # Flooding
-        out = parser.OFPPacketOut(
-            datapath=datapath,
-            buffer_id=msg.buffer_id,
-            in_port=in_port,
-            actions=actions,
-            data=msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None
-        )
+        
+        data = None
+        if msg.buffer_id == ofproto.OFP_NO_BUFFER: data = msg.data
+        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)

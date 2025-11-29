@@ -13,38 +13,60 @@ class MedicalSimpleController(app_manager.RyuApp):
         self.mac_to_port = {}
                 
         self.zones = {
-            # Mahasiswa: G9 AP Lt1 (.101, .102), G9 AP Lt3 (.103, .104), Aula (.105, .106)
+            # Mahasiswa: Gedung G9 Nirkabel (Lt1, Lt2, Lt3) - sesuai topology
             'MAHASISWA': [
-                '10.0.0.101', '10.0.0.102', 
-                '10.0.0.103', '10.0.0.104', 
-                '10.0.0.105', '10.0.0.106'
+                # G9 Lt1 Nirkabel: 192.168.1.10, 192.168.1.11
+                '192.168.1.10', '192.168.1.11',
+                # G9 Lt3 Nirkabel: 192.168.6.10, 192.168.6.11
+                '192.168.6.10', '192.168.6.11'
             ],
-            
-            # Lab Komputer: Diperlakukan sama seperti Mahasiswa (Student Network)
+
+            # Lab Komputer: Diperlakukan sama seperti Mahasiswa (Student Network) - sesuai topology
             'LAB': [
-                '10.0.0.51', '10.0.0.52', # Lab 1
-                '10.0.0.53', '10.0.0.54', # Lab 2
-                '10.0.0.55', '10.0.0.56'  # Lab 3
+                # Lab 1: 192.168.1.50, 192.168.1.51
+                '192.168.1.50', '192.168.1.51',
+                # Lab 2: 192.168.2.50, 192.168.2.51
+                '192.168.2.50', '192.168.2.51',
+                # Lab 3: 192.168.3.50, 192.168.3.51
+                '192.168.3.50', '192.168.3.51'
             ],
-            
-            # Secure: Keuangan, Admin, Pimpinan, Ujian
+
+            # Secure: Keuangan, Admin, Pimpinan, Ujian - sesuai topology
             'SECURE': [
-                '10.0.0.11', '10.0.0.12', '10.0.0.13', '10.0.0.14', # Keuangan & Admin
-                '10.0.0.21', '10.0.0.22', # Pimpinan
-                '10.0.0.91', '10.0.0.92'  # Ujian
+                # Keuangan: Gedung G9 Kabel Lt1
+                '192.168.10.11', '192.168.10.12',
+                # Pimpinan: Gedung G9 Kabel Lt2
+                '192.168.10.33', '192.168.10.34',
+                # Ujian: Gedung G9 Kabel Lt3
+                '192.168.10.97', '192.168.10.98'
             ],
-            
-            # Dosen: G9 (.31, .32), G10 Lt2 (.33, .34), G10 Lt3 (.35, .36)
+
+            # Dosen: Gedung G9 Kabel + Gedung G10 Nirkabel dan Kabel - sesuai topology
             'DOSEN': [
-                '10.0.0.31', '10.0.0.32', 
-                '10.0.0.33', '10.0.0.34', 
-                '10.0.0.35', '10.0.0.36'
+                # G9 Lt2 Kabel (Dosen Gedung G9)
+                '192.168.10.35', '192.168.10.36',
+                # G10 Lt2 Nirkabel (Dosen)
+                '172.16.20.71', '172.16.20.72',
+                # G10 Lt3 Nirkabel (Dosen)
+                '172.16.20.201', '172.16.20.202'
             ],
-            
+
+            # Administrasi Gedung G10 - sesuai topology
+            'ADMIN_G10': [
+                # G10 Lt1 Kabel (Administrasi)
+                '172.16.21.11', '172.16.21.12'
+            ],
+
+            # Aula - sesuai topology
+            'AULA': [
+                # G10 Lt2 Kabel (Aula)
+                '172.16.21.18', '172.16.21.19'
+            ],
+
             # Sub-group khusus untuk rule spesifik
-            'KEUANGAN':  ['10.0.0.11', '10.0.0.12', '10.0.0.13', '10.0.0.14'], 
-            'DEKAN':     ['10.0.0.21', '10.0.0.22'],
-            'UJIAN':     ['10.0.0.91', '10.0.0.92']
+            'KEUANGAN':  ['192.168.10.11', '192.168.10.12'],
+            'DEKAN':     ['192.168.10.33', '192.168.10.34'],
+            'UJIAN':     ['192.168.10.97', '192.168.10.98']
         }
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -72,6 +94,8 @@ class MedicalSimpleController(app_manager.RyuApp):
         if ip_addr in self.zones['LAB']:       return 'MAHASISWA'
         if ip_addr in self.zones['SECURE']:    return 'SECURE'
         if ip_addr in self.zones['DOSEN']:     return 'DOSEN'
+        if ip_addr in self.zones['ADMIN_G10']: return 'ADMIN_G10'
+        if ip_addr in self.zones['AULA']:      return 'AULA'
         return 'UNKNOWN'
 
     def check_security(self, src_ip, dst_ip, icmp_type=None):
@@ -86,7 +110,7 @@ class MedicalSimpleController(app_manager.RyuApp):
         if src_cat == 'MAHASISWA' and dst_cat == 'SECURE':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
-                
+
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Zona Aman", False
 
         # RULE 3: Mahasiswa/Lab -> Dosen (BLOCK)
@@ -96,16 +120,35 @@ class MedicalSimpleController(app_manager.RyuApp):
 
             return False, "BLOCK: Mahasiswa/Lab mencoba akses Dosen Pribadi", False
 
-        # RULE 4: Dosen -> Ujian (BLOCK)
+        # RULE 4: Mahasiswa/Lab -> Admin G10 (ALLOW)
+        if src_cat == 'MAHASISWA' and dst_cat == 'ADMIN_G10':
+            return True, "ALLOW: Mahasiswa akses Administrasi G10", True
+
+        # RULE 5: Mahasiswa/Lab -> Aula (ALLOW)
+        if src_cat == 'MAHASISWA' and dst_cat == 'AULA':
+            return True, "ALLOW: Mahasiswa akses Aula", True
+
+        # RULE 6: Dosen -> Ujian (BLOCK)
         if src_cat == 'DOSEN' and dst_ip in self.zones['UJIAN']:
             return False, "BLOCK: Dosen akses Server Ujian", False
-        
-        # RULE 5: Dosen -> Secure (BLOCK)
+
+        # RULE 7: Dosen -> Secure (BLOCK)
         if src_cat == 'DOSEN' and dst_cat == 'SECURE':
             if icmp_type == icmp.ICMP_ECHO_REPLY:
                 return True, "ALLOW: Ping Reply (Return Traffic)", False
-         
+
             return False, "BLOCK: Dosen akses Zona Aman", False
+
+        # RULE 8: Admin G10 -> Secure (ALLOW for administrative access)
+        if src_cat == 'ADMIN_G10' and dst_cat == 'SECURE':
+            return True, "ALLOW: Admin G10 akses Zona Aman (Administrative)", True
+
+        # RULE 9: Aula -> Secure (BLOCK)
+        if src_cat == 'AULA' and dst_cat == 'SECURE':
+            if icmp_type == icmp.ICMP_ECHO_REPLY:
+                return True, "ALLOW: Ping Reply (Return Traffic)", False
+
+            return False, "BLOCK: Aula mencoba akses Zona Aman", False
 
         return True, "ALLOW: Akses Diizinkan", True
 

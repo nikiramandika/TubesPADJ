@@ -141,13 +141,13 @@ class GedungTopo(Topo):
         self.addLink(s_g10_lt2, h_mhs_g10_lt2_1)
         self.addLink(s_g10_lt2, h_mhs_g10_lt2_2)
 
-        # IP Kabel Gedung G10 Lantai 2: 192.168.21.16/29 (Aula & Mahasiswa)
-        h_mhs_10a_1 = self.addHost('mhs10a1', ip='192.168.21.17/16')
-        h_mhs_10a_2 = self.addHost('mhs10a2', ip='192.168.21.18/16')
+        # IP Kabel Gedung G10 Lantai 2: 192.168.21.16/29
+        h_dsn_10a_1 = self.addHost('dsn10a1', ip='192.168.21.17/16')
+        h_dsn_10a_2 = self.addHost('dsn10a2', ip='192.168.21.18/16')
         h_aula_1 = self.addHost('aula1', ip='192.168.21.19/16')
         h_aula_2 = self.addHost('aula2', ip='192.168.21.20/16')
-        self.addLink(s_g10_lt2, h_mhs_10a_1)
-        self.addLink(s_g10_lt2, h_mhs_10a_2)
+        self.addLink(s_g10_lt2, h_dsn_10a_1)
+        self.addLink(s_g10_lt2, h_dsn_10a_2)
         self.addLink(s_g10_lt2, h_aula_1)
         self.addLink(s_g10_lt2, h_aula_2)
 
@@ -161,11 +161,11 @@ class GedungTopo(Topo):
         self.addLink(s_g10_lt3, h_mhs_g10_lt3_1)
         self.addLink(s_g10_lt3, h_mhs_g10_lt3_2)
 
-        # IP Kabel Gedung G10 Lantai 3: 192.168.21.32/26 (Mahasiswa)
-        h_mhs_10b_1 = self.addHost('mhs10b1', ip='192.168.21.33/16')
-        h_mhs_10b_2 = self.addHost('mhs10b2', ip='192.168.21.34/16')
-        self.addLink(s_g10_lt3, h_mhs_10b_1)
-        self.addLink(s_g10_lt3, h_mhs_10b_2)
+        # IP Kabel Gedung G10 Lantai 3: 192.168.21.32/26
+        h_dsn_10b_1 = self.addHost('dsn10b1', ip='192.168.21.33/16')
+        h_dsn_10b_2 = self.addHost('dsn10b2', ip='192.168.21.34/16')
+        self.addLink(s_g10_lt3, h_dsn_10b_1)
+        self.addLink(s_g10_lt3, h_dsn_10b_2)
 
 def run():
     topo = GedungTopo()
